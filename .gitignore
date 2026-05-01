@@ -1,0 +1,14 @@
+node_modules/
+# /* glob (not trailing slash) so negation below can re-include specific files.
+uploads/*
+data/*.json
+!data/.gitkeep
+
+# Baked-in pilot records — required for Railway deploy where filesystem is ephemeral.
+# Remove these exceptions once Supabase / Vercel Blob is wired for persistence.
+!data/KhKumalo.json
+!data/sample.json
+!uploads/pnkr6y9NW0.JPG
+
+.env
+.DS_Store

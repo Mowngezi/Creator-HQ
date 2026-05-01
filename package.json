@@ -1,0 +1,23 @@
+{
+  "name": "creatorhq",
+  "version": "0.1.0",
+  "description": "CreatorHQ — Media Kit + Rate Card generator. Client-side PDF via html2pdf.js.",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --env-file=.env --watch server.js",
+    "migrate:khanyi": "node --env-file=.env scripts/migrate-khanyi.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "cookie-parser": "^1.4.7",
+    "express": "^4.22.1",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^1.4.5-lts.1",
+    "nanoid": "^5.1.7"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

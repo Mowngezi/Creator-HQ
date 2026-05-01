@@ -1,0 +1,128 @@
+{
+  "id": "KhKumalo",
+  "createdAt": "2026-04-15T00:00:00.000Z",
+  "statsUpdatedAt": "2026-04-18T10:00:00.000Z",
+  "name": "Khanyisile Khumalo",
+  "handle": "@khanyisilekhumalo",
+  "niche": "Digital Content Creator",
+  "subtitle": "Cultural Influencer · Lifestyle Advocate",
+  "location": "Tembisa, Gauteng",
+  "tagline": "From Tembisa. For everyone.",
+  "bio": "Khanyisile Khumalo is a rising digital powerhouse who has turned her everyday experiences into a relatable, high-engagement content platform. Known for infectious energy and unapologetic authenticity, she bridges the gap between grassroots township culture and modern lifestyle trends.\r\n\r\nHer journey began with a simple goal: document the beauty, humour, and hustle of Tembisa life. Today she is a voice for a generation that values realness over filters — merging comedy, traditional storytelling, and modern cultural commentary into a content identity that moves culture forward.",
+  "email": "bookings@khanyisilekhumalo.co.za",
+  "photo": {
+    "url": "/uploads/pnkr6y9NW0.JPG",
+    "slotSpec": {
+      "width": 365,
+      "height": 1123
+    }
+  },
+  "reach": [
+    {
+      "val": "20M+",
+      "lbl": "FB Monthly Reach"
+    },
+    {
+      "val": "400K+",
+      "lbl": "TikTok Followers"
+    },
+    {
+      "val": "1M+",
+      "lbl": "IG Monthly Views"
+    }
+  ],
+  "bioParagraphs": [
+    "Khanyisile Khumalo is a rising digital powerhouse who has turned her everyday experiences into a relatable, high-engagement content platform. Known for infectious energy and unapologetic authenticity, she bridges the gap between grassroots township culture and modern lifestyle trends.",
+    "Her journey began with a simple goal: document the beauty, humour, and hustle of Tembisa life. Today she is a voice for a generation that values realness over filters — merging comedy, traditional storytelling, and modern cultural commentary into a content identity that moves culture forward."
+  ],
+  "bioPillars": [
+    {
+      "label": "Authentic Storytelling",
+      "text": "Her content resonates deeply with young adults and families, making her a trusted voice for brands entering the SA retail and lifestyle market with genuine credibility."
+    },
+    {
+      "label": "Peer-to-Peer Influence",
+      "text": "Unlike traditional celebrities, Khanyisile maintains a direct peer relationship with her audience — high comment-to-view ratios and loyalty that brands cannot manufacture."
+    }
+  ],
+  "platforms": {
+    "instagram": {
+      "handle": "@khanyisilekhumalo",
+      "followers": 13000,
+      "engagement": 4.2
+    },
+    "tiktok": {
+      "handle": "@khanyisilekhumalo",
+      "followers": 400000,
+      "engagement": 0
+    },
+    "youtube": {
+      "handle": "",
+      "followers": 0,
+      "avgViews": 0
+    }
+  },
+  "audience": {
+    "gender": { "male": "42%", "female": "58%" },
+    "age": [
+      { "range": "18-24", "percentage": "45%" },
+      { "range": "25-34", "percentage": "35%" }
+    ],
+    "locations": [
+      { "name": "Gauteng", "percentage": "60%" },
+      { "name": "Western Cape", "percentage": "20%" }
+    ],
+    "primaryRegion": "South Africa",
+    "ageGroup": "18–34",
+    "ageLabel": "Gen Z & Millennials",
+    "interests": [
+      "Fashion", "Beauty", "SA Humour", "Community Life", "Lifestyle", "Township Culture", "Music", "Cars", "FMCG"
+    ],
+    "note": "Her audience does not simply watch her content — they follow her lead. She naturally converts digital engagement into physical presence, making her an ideal partner for brands seeking both cultural relevance and reach."
+  },
+  "brands": [
+    { "name": "Google",   "category": "Tech", "evidence": ["https://www.instagram.com/p/C5_x7j9NW0/"] },
+    { "name": "KitKat",   "category": "FMCG", "evidence": ["https://www.tiktok.com/@khanyisilekhumalo/video/7350000000"] },
+    { "name": "Nestlé",   "category": "FMCG", "evidence": [] },
+    { "name": "FNB",      "category": "Financial Services", "evidence": ["https://twitter.com/khanyisile/status/1234567"] },
+    { "name": "Vaseline", "category": "Beauty & Skincare", "evidence": [] }
+  ],
+  "packages": [
+    {
+      "name": "Basic Campaign",
+      "description": "1 dedicated post · 1 reel · 1 story\nEngagement monitoring",
+      "price": "R50,000",
+      "highlight": false
+    },
+    {
+      "name": "Monthly Retainer",
+      "description": "2 dedicated posts · 2 reels · 4 story sets\nFull usage rights · Performance report",
+      "price": "R80,000",
+      "highlight": true
+    },
+    {
+      "name": "Custom Partnership",
+      "description": "Scoped per brief — ambassador,\ncommunity activation, co-creation",
+      "price": "POA",
+      "highlight": false
+    }
+  ],
+  "rates": {
+    "hourly": 1500,
+    "packages": {
+      "3h": 4000,
+      "4h": 5500,
+      "8h": 9500
+    }
+  },
+  "customRates": [
+    { "label": "Single Image", "amount": 2500 },
+    { "label": "Carousel", "amount": 4500 },
+    { "label": "Video", "amount": 15000 },
+    { "label": "Story Set", "amount": 1800 }
+  ],
+  "contact": {
+    "email": "bookings@khanyisilekhumalo.co.za",
+    "note": "For campaign briefs and partnership proposals reach out to discuss your brand goals"
+  }
+}

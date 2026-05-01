@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Ava Linden — Rate Card</title>
+  <meta name="viewport" content="width=794" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600&display=swap');
+
+    :root {
+      --black: #0a0a0a;
+      --paper: #faf8f3;
+      --sand:  #e8e1d1;
+      --sage:  #8a9a7b;
+      --rule:  rgba(10,10,10,0.12);
+      --muted: rgba(10,10,10,0.55);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { background: var(--paper); color: var(--black); }
+    body {
+      font-family: 'Instrument Sans', system-ui, sans-serif;
+      font-size: 11pt;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .display {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+    }
+
+    /* A4 page — 794 x 1123 px at 96dpi */
+    .page {
+      width: 794px;
+      min-height: 1123px;
+      margin: 0 auto;
+      background: var(--paper);
+      position: relative;
+      overflow: hidden;
+      page-break-after: always;
+    }
+    .page:last-child { page-break-after: auto; }
+
+    /* ---- COVER ---- */
+    .cover {
+      display: grid;
+      grid-template-columns: 365px 1fr;
+      min-height: 1123px;
+    }
+
+    /* The photo slot is LOCKED to 365 x 1123 px. This is the spec. */
+    .cover__photo {
+      width: 365px;
+      height: 1123px;
+      background: var(--sand);
+      overflow: hidden;
+      position: relative;
+    }
+    .cover__photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      display: block;
+    }
+    .cover__photo--empty::after {
+      content: '365 × 1123';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 9pt;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .cover__body {
+      padding: 72px 64px 64px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 1123px;
+    }
+    .cover__eyebrow {
+      font-size: 9pt;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--sage);
+      font-weight: 500;
+    }
+    .cover__name {
+      font-size: 58pt;
+      line-height: 0.95;
+      margin-top: 36px;
+      color: var(--black);
+    }
+    .cover__handle {
+      margin-top: 14px;
+      font-size: 11pt;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+    .cover__tagline {
+      margin-top: 48px;
+      font-size: 18pt;
+      line-height: 1.3;
+      max-width: 28ch;
+    }
+    .cover__foot {
+      font-size: 8.5pt;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* ---- INTERIOR PAGE ---- */
+    .sheet {
+      padding: 72px 64px;
+    }
+    .section + .section { margin-top: 56px; }
+    .section__label {
+      font-size: 8.5pt;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--sage);
+      margin-bottom: 18px;
+    }
+    .section__title {
+      font-size: 28pt;
+      line-height: 1.1;
+      margin-bottom: 24px;
+    }
+    .section__body {
+      font-size: 11pt;
+      max-width: 62ch;
+      color: rgba(10,10,10,0.82);
+    }
+
+    .platforms {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      border-top: 1px solid var(--rule);
+      border-bottom: 1px solid var(--rule);
+    }
+    .platform {
+      padding: 28px 24px;
+      border-right: 1px solid var(--rule);
+    }
+    .platform:last-child { border-right: none; }
+    .platform__name {
+      font-size: 9pt;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .platform__handle {
+      font-size: 16pt;
+      margin-top: 6px;
+    }
+    .platform__stats {
+      margin-top: 18px;
+      display: flex;
+      gap: 32px;
+    }
+    .stat__n {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 32pt;
+      line-height: 1;
+    }
+    .stat__l {
+      font-size: 8.5pt;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .rates { border-top: 1px solid var(--rule); }
+    .rate {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 22px 0;
+      border-bottom: 1px solid var(--rule);
+    }
+    .rate__label { font-size: 13pt; }
+    .rate__amount {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 26pt;
+    }
+
+    .work { display: grid; grid-template-columns: 1fr 1fr; gap: 24px 32px; }
+    .work__item {
+      padding: 20px 22px;
+      background: var(--sand);
+    }
+    .work__brand {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18pt;
+      line-height: 1.1;
+    }
+    .work__note {
+      font-size: 10pt;
+      color: rgba(10,10,10,0.72);
+      margin-top: 8px;
+    }
+
+    .foot {
+      margin-top: 72px;
+      padding-top: 24px;
+      border-top: 1px solid var(--rule);
+      display: flex;
+      justify-content: space-between;
+      font-size: 8.5pt;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* Screen-only chrome (hidden when Puppeteer renders to PDF) */
+    .chrome {
+      position: fixed;
+      top: 20px; right: 20px;
+      display: flex; gap: 10px;
+      z-index: 10;
+    }
+    .chrome a {
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 10pt;
+      padding: 10px 16px;
+      background: var(--black);
+      color: var(--paper);
+      text-decoration: none;
+      border-radius: 2px;
+    }
+    .chrome a.secondary {
+      background: transparent;
+      color: var(--black);
+      border: 1px solid var(--black);
+    }
+    .for-pdf .chrome { display: none; }
+
+    @media print {
+      .chrome { display: none; }
+      .page { margin: 0; box-shadow: none; }
+    }
+  </style>
+</head>
+<body class="">
+  <div class="chrome">
+          <a class="secondary" href="/">New card</a>
+          <a href="/c/sample/pdf">Download PDF</a>
+        </div>
+
+  <!-- PAGE 1 — COVER -->
+  <section class="page">
+    <div class="cover">
+      <div class="cover__photo cover__photo--empty"></div>
+      <div class="cover__body">
+        <div>
+          <div class="cover__eyebrow">Rate Card · 2026</div>
+          <h1 class="display cover__name">Ava Linden</h1>
+          <div class="cover__handle">@avalinden</div>
+          <p class="display cover__tagline">Slow fashion, fast opinions. Built for brands that care what their audience cares about.</p>
+        </div>
+        <div class="cover__foot">
+          <span>CreatorHQ</span>
+          <span>10/04/2026</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE 2 — DETAIL -->
+  <section class="page">
+    <div class="sheet">
+      <div class="section">
+              <div class="section__label">About</div>
+              <h2 class="display section__title">Ava Linden</h2>
+              <p class="section__body">London-based creator focused on ethical fashion and interiors. Four years making branded content for indie and global labels. Audience is 72% UK, 64% women 25–34, with a measured interest in sustainability that actually converts.</p>
+            </div>
+
+      <div class="section">
+        <div class="section__label">Audience</div>
+        <div class="platforms">
+          
+    <div class="platform">
+      <div class="platform__name">Instagram</div>
+      <div class="platform__handle">@avalinden</div>
+      <div class="platform__stats">
+        <div>
+          <div class="stat__n">84,200</div>
+          <div class="stat__l">Followers</div>
+        </div>
+        <div>
+          <div class="stat__n">4.6%</div>
+          <div class="stat__l">Engagement</div>
+        </div>
+      </div>
+    </div>
+          
+    <div class="platform">
+      <div class="platform__name">TikTok</div>
+      <div class="platform__handle">@avalinden</div>
+      <div class="platform__stats">
+        <div>
+          <div class="stat__n">121,000</div>
+          <div class="stat__l">Followers</div>
+        </div>
+        <div>
+          <div class="stat__n">6.1%</div>
+          <div class="stat__l">Engagement</div>
+        </div>
+      </div>
+    </div>
+        </div>
+      </div>
+
+      <div class="section">
+              <div class="section__label">Rates</div>
+              <div class="rates">
+        <div class="rate">
+          <div class="rate__label">Instagram Reel</div>
+          <div class="rate__amount">£1,800</div>
+        </div>
+        <div class="rate">
+          <div class="rate__label">Instagram Story set (3)</div>
+          <div class="rate__amount">£650</div>
+        </div>
+        <div class="rate">
+          <div class="rate__label">TikTok Video</div>
+          <div class="rate__amount">£2,200</div>
+        </div>
+        <div class="rate">
+          <div class="rate__label">Content Bundle (IG + TT)</div>
+          <div class="rate__amount">£3,600</div>
+        </div></div>
+            </div>
+
+      <div class="section">
+              <div class="section__label">Selected Work</div>
+              <div class="work">
+        <div class="work__item">
+          <div class="work__brand">&amp; Other Stories</div>
+          <div class="work__note">AW24 campaign — 3-post Reel series</div>
+        </div>
+        <div class="work__item">
+          <div class="work__brand">Aesop</div>
+          <div class="work__note">Store launch — Reel + carousel</div>
+        </div>
+        <div class="work__item">
+          <div class="work__brand">Muji UK</div>
+          <div class="work__note">Interiors series — 4x TikTok</div>
+        </div>
+        <div class="work__item">
+          <div class="work__brand">Rowse Jewellery</div>
+          <div class="work__note">Edit launch — dedicated Reel</div>
+        </div></div>
+            </div>
+
+      <div class="foot">
+        <span>@avalinden</span>
+        <span>hello@avalinden.co</span>
+      </div>
+    </div>
+  </section>
+</body>
+</html>
