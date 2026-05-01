@@ -27,6 +27,136 @@ const fmtCurrency = (n) => {
   return 'R' + Number(n).toLocaleString('en-ZA');
 };
 
+// ---- shared site header (clickable logo + nav, mounted on every page) ----
+// Design: minimal black bar that doesn't fight any of the kit aesthetics.
+// Logo links to /. Optional back link for in-creator-flow pages so users always
+// have an obvious escape hatch.
+//
+// Usage:
+//   renderSiteHeader({ current: 'landing' })
+//   renderSiteHeader({ current: 'form', back: { href: '/', label: 'Home' } })
+//   renderSiteHeader({ current: 'kit', back: { href: '/', label: 'Home' }, theme: 'on-dark' })
+//
+// theme: 'on-light' (default) or 'on-dark' for use over the dark cover.
+function renderSiteHeader({ current = '', back = null, theme = 'on-light' } = {}) {
+  const onDark = theme === 'on-dark';
+  const fg = onDark ? 'rgba(255,255,255,0.92)' : '#0a0a0a';
+  const fgMuted = onDark ? 'rgba(255,255,255,0.55)' : 'rgba(10,10,10,0.55)';
+  const bg = onDark ? 'transparent' : 'rgba(255,255,255,0.92)';
+  const border = onDark ? 'rgba(255,255,255,0.08)' : 'rgba(10,10,10,0.08)';
+  return `
+  <style>
+    .chq-header {
+      position: sticky; top: 0; z-index: 50;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.85rem 1.25rem;
+      background: ${bg};
+      backdrop-filter: saturate(140%) blur(6px);
+      -webkit-backdrop-filter: saturate(140%) blur(6px);
+      border-bottom: 1px solid ${border};
+    }
+    .chq-header__logo {
+      display: inline-flex; align-items: baseline; gap: 0.55rem;
+      text-decoration: none; color: ${fg};
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em;
+    }
+    .chq-header__logo span {
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 0.6rem; letter-spacing: 0.18em; text-transform: uppercase;
+      color: ${fgMuted}; font-weight: 500;
+    }
+    .chq-header__nav { display: flex; align-items: center; gap: 0.6rem; font-family: 'Instrument Sans', sans-serif; }
+    .chq-header__nav a {
+      color: ${fgMuted}; text-decoration: none;
+      font-size: 0.72rem; letter-spacing: 0.04em;
+      padding: 0.4rem 0.6rem; border-radius: 6px;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .chq-header__nav a:hover { color: ${fg}; }
+    .chq-header__back {
+      border: 1px solid ${border};
+    }
+    .chq-header__back:hover { border-color: ${fg}; }
+    @media (max-width: 480px) {
+      .chq-header { padding: 0.7rem 0.9rem; }
+      .chq-header__logo { font-size: 0.95rem; }
+      .chq-header__logo span { display: none; }
+      .chq-header__nav { gap: 0.35rem; }
+      .chq-header__nav a { padding: 0.35rem 0.5rem; font-size: 0.7rem; }
+    }
+  </style>
+  <header class="chq-header">
+    <a href="/" class="chq-header__logo" aria-label="CreatorHQ home">
+      CreatorHQ
+      <span>Simulacra</span>
+    </a>
+    <nav class="chq-header__nav">
+      ${current !== 'landing' ? `<a href="/">Home</a>` : ''}
+      ${back ? `<a href="${esc(back.href)}" class="chq-header__back">← ${esc(back.label)}</a>` : ''}
+    </nav>
+  </header>`;
+}
+
+// ---- shared trust strip (landing + form) -----------------------------------
+// Tells a stranger: who built this, who's already on it, what we do with data,
+// why no signup. The single biggest first-impression boost for the
+// dark-promoter wave when Khanyi shares.
+function renderTrustStrip() {
+  return `
+  <section class="chq-trust" style="border-top:1px solid rgba(10,10,10,0.08); border-bottom:1px solid rgba(10,10,10,0.08); padding:1.5rem 1.25rem; background:#fafafa;">
+    <div style="max-width:980px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:1.5rem; font-family:'Instrument Sans',sans-serif; font-size:0.78rem; line-height:1.5; color:rgba(10,10,10,0.7);">
+      <div>
+        <div style="font-size:0.62rem; letter-spacing:0.16em; text-transform:uppercase; color:rgba(10,10,10,0.5); margin-bottom:0.4rem;">Built in SA</div>
+        Made by Mowa Khoza in Johannesburg, for African creators.
+      </div>
+      <div>
+        <div style="font-size:0.62rem; letter-spacing:0.16em; text-transform:uppercase; color:rgba(10,10,10,0.5); margin-bottom:0.4rem;">Used by</div>
+        <a href="/c/KhKumalo" style="color:rgba(10,10,10,0.7); border-bottom:1px solid rgba(10,10,10,0.2); text-decoration:none;">Khanyisile Khumalo</a>, Tembisa creator. Brands have her on file.
+      </div>
+      <div>
+        <div style="font-size:0.62rem; letter-spacing:0.16em; text-transform:uppercase; color:rgba(10,10,10,0.5); margin-bottom:0.4rem;">Your data</div>
+        Stays yours. You own the URL. Edit or delete any time. No tracking pixels, no resale.
+      </div>
+      <div>
+        <div style="font-size:0.62rem; letter-spacing:0.16em; text-transform:uppercase; color:rgba(10,10,10,0.5); margin-bottom:0.4rem;">No signup</div>
+        Build a kit in 4 minutes without an account. Add login later if you want analytics or edit-from-anywhere.
+      </div>
+    </div>
+  </section>`;
+}
+
+// Tiny 404 page that respects the design system + gives the user a way home.
+export function renderNotFoundHTML({ what = 'page' } = {}) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CreatorHQ · Not found</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Instrument+Sans:wght@300;400;500&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Instrument Sans', system-ui, sans-serif; background: #fafafa; color: #0a0a0a; min-height: 100vh; display: flex; flex-direction: column; }
+    main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 1.5rem; text-align: center; }
+    h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 4rem; font-weight: 300; line-height: 1; margin-bottom: 1rem; letter-spacing: -0.02em; }
+    h1 em { font-style: italic; color: rgba(10,10,10,0.55); }
+    p { font-size: 1rem; color: rgba(10,10,10,0.6); margin-bottom: 2rem; max-width: 32rem; }
+    a.cta { display: inline-block; background: #0a0a0a; color: #fff; text-decoration: none; padding: 0.85rem 1.5rem; border-radius: 100px; font-size: 0.85rem; letter-spacing: 0.04em; }
+    a.cta:hover { background: #1a1a1a; }
+  </style>
+</head>
+<body>
+  ${renderSiteHeader({ current: '404' })}
+  <main>
+    <h1>Not <em>here.</em></h1>
+    <p>The ${esc(what)} you tried to open does not exist or has been moved. The kit owner may have deleted it, or the link was mistyped.</p>
+    <a href="/" class="cta">Back to CreatorHQ</a>
+  </main>
+</body>
+</html>`;
+}
+
 // ---- shared head / fonts / base CSS (used by form + landing) ----
 
 function headCSS() {
@@ -430,7 +560,36 @@ function headCSS() {
 
 // ---- Media Kit Card (Khanyisile scrollable design) ----
 
-export function renderCardHTML(creator, { forPDF = false } = {}) {
+// Renders the post-create banner. Shown on first kit view (?created=1).
+// User can dismiss; sharing the URL strips the param naturally.
+function renderCreatedBanner(creator, productLabel = 'Media kit') {
+  const shareUrl = `https://creator-hq-production.up.railway.app/c/${esc(creator.id)}`;
+  return `
+  <div id="created-banner" style="position:sticky; top:54px; z-index:40; background:#0a0a0a; color:#fff; padding:0.9rem 1.25rem; font-family:'Instrument Sans',sans-serif; font-size:0.82rem;">
+    <div style="max-width:980px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+      <div style="display:flex; align-items:center; gap:0.6rem;">
+        <span style="display:inline-flex; align-items:center; justify-content:center; width:1.4rem; height:1.4rem; border-radius:50%; background:#22c55e; color:#0a0a0a; font-size:0.7rem; font-weight:700;">✓</span>
+        <span><strong>${esc(productLabel)} live.</strong> Copy the link and send it to a brand or a friend.</span>
+      </div>
+      <div style="display:flex; gap:0.5rem; align-items:center;">
+        <button onclick="copyShareUrl()" id="created-banner-copy" style="background:#fff; color:#0a0a0a; border:none; padding:0.45rem 0.9rem; border-radius:100px; font-size:0.72rem; font-weight:500; cursor:pointer; letter-spacing:0.04em;">Copy link</button>
+        <a href="/c/${esc(creator.id)}/edit" style="color:rgba(255,255,255,0.85); text-decoration:none; font-size:0.72rem; padding:0.45rem 0.7rem; border:1px solid rgba(255,255,255,0.18); border-radius:100px;">Edit</a>
+        <button onclick="document.getElementById('created-banner').remove()" aria-label="Dismiss" style="background:none; border:none; color:rgba(255,255,255,0.6); font-size:1.1rem; cursor:pointer; padding:0 0.4rem;">×</button>
+      </div>
+    </div>
+    <script>
+      function copyShareUrl(){
+        const url = window.location.origin + window.location.pathname;
+        navigator.clipboard.writeText(url).then(()=>{
+          const b = document.getElementById('created-banner-copy');
+          const o = b.textContent; b.textContent = 'Copied'; setTimeout(()=>b.textContent=o, 1800);
+        }).catch(()=>{});
+      }
+    </script>
+  </div>`;
+}
+
+export function renderCardHTML(creator, { forPDF = false, justCreated = false } = {}) {
   // Decay Rule calculation (7-day visual downgrade)
   const statsDate = creator.statsUpdatedAt ? new Date(creator.statsUpdatedAt) : null;
   const daysOld = statsDate ? Math.floor((Date.now() - statsDate) / (1000 * 60 * 60 * 24)) : 0;
@@ -501,7 +660,7 @@ export function renderCardHTML(creator, { forPDF = false } = {}) {
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>${firstName} ${lastName} — Media Kit</title>
+  <title>${firstName} ${lastName} · Media Kit</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Instrument+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -729,6 +888,14 @@ export function renderCardHTML(creator, { forPDF = false } = {}) {
   </style>
 </head>
 <body>
+
+${forPDF ? '' : renderSiteHeader({
+  current: 'kit',
+  back: { href: '/', label: 'Home' },
+  theme: 'on-light'
+})}
+
+${(!forPDF && justCreated) ? renderCreatedBanner(creator, 'Media kit') : ''}
 
 <!-- ── DATED OVERLAY ── -->
 <div class="${isDated ? 'is-dated' : ''}">
@@ -1633,7 +1800,7 @@ export function renderPDFHTML(creator, photoBase64 = null) {
 
 // ---- Rate Card (clean 1-pager) ----
 
-export function renderRateCardHTML(creator) {
+export function renderRateCardHTML(creator, { justCreated = false } = {}) {
   // Decay Rule calculation (7-day visual downgrade)
   const statsDate = creator.statsUpdatedAt ? new Date(creator.statsUpdatedAt) : null;
   const daysOld = statsDate ? Math.floor((Date.now() - statsDate) / (1000 * 60 * 60 * 24)) : 0;
@@ -1665,7 +1832,7 @@ export function renderRateCardHTML(creator) {
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>${firstName} ${lastName} — Rate Card</title>
+  <title>${firstName} ${lastName} · Rate Card</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Instrument+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -1709,6 +1876,12 @@ export function renderRateCardHTML(creator) {
   </style>
 </head>
 <body class="${isDated ? 'is-dated' : ''}">
+${renderSiteHeader({
+  current: 'rate-card',
+  back: { href: `/c/${esc(creator.id)}`, label: 'Full kit' },
+  theme: 'on-light'
+})}
+${justCreated ? renderCreatedBanner(creator, 'Rate card') : ''}
 ${isDated ? `<div class="dated-badge">${datedLabel}</div>` : ''}
 <div class="page">
   <div class="header">
@@ -1842,11 +2015,12 @@ export function renderFormHTML(creator = null, opts = {}) {
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>CreatorHQ — ${pageTitle}</title>
+  <title>CreatorHQ · ${pageTitle}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     ${headCSS()}
-    body { padding: 48px 24px 96px; background: #ffffff; color: #0a0a0a; }
+    body { padding: 0 0 96px; background: #ffffff; color: #0a0a0a; }
+    .wrap { padding: 32px 24px 0; }
     .wrap { max-width: 720px; margin: 0 auto; }
     h1.display { font-size: 44pt; line-height: 1; margin-bottom: 8px; }
     .lede { color: var(--muted); margin-bottom: 48px; font-size: 12pt; }
@@ -1909,12 +2083,17 @@ export function renderFormHTML(creator = null, opts = {}) {
   </style>
 </head>
 <body>
+  ${renderSiteHeader({
+    current: 'form',
+    back: isEdit
+      ? { href: `/c/${esc(c.id)}`, label: 'Back to my kit' }
+      : { href: '/', label: 'Cancel' }
+  })}
   <div class="wrap">
-    <div style="font-size:9pt;letter-spacing:0.25em;text-transform:uppercase;color:#6b6460;margin-bottom:12px;">CreatorHQ</div>
     <h1 class="display">${pageTitle}</h1>
     <p class="lede">${isRate
-      ? 'A clean one-pager brands can read in 30 seconds. Platforms, rates, and contact — nothing else.'
-      : 'The full story — bio, audience, brands, packages, rates. Designed, shareable, PDF-ready.'}</p>
+      ? 'A clean one-pager brands can read in 30 seconds. Platforms, rates, contact. Nothing else.'
+      : 'The full story. Bio, audience, brands, packages, rates. Designed, shareable, PDF-ready.'}</p>
     <a href="${toggleHref}" style="display:inline-block;margin-bottom:32px;font-size:10pt;color:var(--muted);text-decoration:none;border-bottom:1px solid var(--rule);padding-bottom:2px;">${toggleLabel}</a>
 
     <form action="${actionUrl}" method="post" enctype="multipart/form-data">
@@ -1964,7 +2143,7 @@ export function renderFormHTML(creator = null, opts = {}) {
       </fieldset>
 
       <fieldset>
-        <legend>Bio — the long form</legend>
+        <legend>Bio · the long form</legend>
         <div class="hint" style="margin-top:0;margin-bottom:16px;">Paragraphs that tell your story. Add one paragraph per field.</div>
         <div id="bio-paragraphs">
           ${(bioParagraphs.length ? bioParagraphs : ['']).map(p => `
@@ -1988,7 +2167,7 @@ export function renderFormHTML(creator = null, opts = {}) {
 
       <fieldset>
         <legend>Cover photo</legend>
-        <div class="photo-spec">Slot: 365 × 1123 px — portrait, full bleed</div>
+        <div class="photo-spec">Slot: 365 × 1123 px · portrait, full bleed</div>
         <input name="photo" type="file" accept="image/*" />
         <div class="hint">If your image isn't exactly this ratio, it'll be centre-cropped to fit.</div>
       </fieldset>
@@ -2091,7 +2270,7 @@ export function renderFormHTML(creator = null, opts = {}) {
 
       <fieldset>
         <legend>Rates</legend>
-        <div class="hint" style="margin-top:0;margin-bottom:16px;">Label each deliverable clearly — brands will read this line verbatim. Not sure what to charge? <a href="/calculator" style="color:var(--black);text-decoration:underline;">Try the rate calculator →</a></div>
+        <div class="hint" style="margin-top:0;margin-bottom:16px;">Label each deliverable clearly. Brands will read this line verbatim. Not sure what to charge? <a href="/calculator" style="color:var(--black);text-decoration:underline;">Try the rate calculator →</a></div>
 
         <div id="rates">
           <div class="row" style="margin-bottom:1.5rem">
@@ -2217,7 +2396,7 @@ export function renderFormHTML(creator = null, opts = {}) {
       row.innerHTML = '<input name="rate_label" type="text" placeholder="e.g. TikTok Video" value="' + label + '" />' +
         '<input name="rate_amount" type="number" min="0" placeholder="Amount" value="' + amount + '" />' +
         '<button type="button" onclick="this.parentElement.remove()">Remove</button>' +
-        '<input name="rate_note" type="text" placeholder="Note (optional) — e.g. incl. usage rights" style="grid-column:1 / -1; margin-top:-4px;" />';
+        '<input name="rate_note" type="text" placeholder="Note (optional). e.g. incl. usage rights" style="grid-column:1 / -1; margin-top:-4px;" />';
       wrap.appendChild(row);
     }
     function addWork() {
@@ -2361,7 +2540,7 @@ export function renderLandingHTML() {
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>CreatorHQ — Media Kits for African Creators</title>
+  <title>CreatorHQ · Media Kits for African Creators</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Instrument+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -2573,10 +2752,7 @@ export function renderLandingHTML() {
   </style>
 </head>
 <body>
-  <nav class="nav">
-    <div class="nav__logo">CreatorHQ</div>
-    <div class="nav__tag">Simulacra Ecosystem</div>
-  </nav>
+  ${renderSiteHeader({ current: 'landing' })}
 
   <main class="hero">
     <div class="hero__eyebrow">For African Creators</div>
@@ -2602,19 +2778,21 @@ export function renderLandingHTML() {
     <div class="proof__item">
       <div class="proof__num">Media <em>Kit</em></div>
       <div class="proof__label">Not just a rate card</div>
-      <div class="proof__desc">A full scrollable page — your story, your numbers, your brands, your rates. Shareable link. PDF on demand.</div>
+      <div class="proof__desc">A full scrollable page. Your story, your numbers, your brands, your rates. Shareable link. PDF on demand.</div>
     </div>
     <div class="proof__item">
       <div class="proof__num">ZAR <em>Rates</em></div>
       <div class="proof__label">Built for South Africa</div>
-      <div class="proof__desc">Built-in calculator uses your actual follower and engagement data to generate baseline SA rates — no guessing.</div>
+      <div class="proof__desc">Built-in calculator uses your actual follower and engagement data to generate baseline SA rates. No guessing.</div>
     </div>
     <div class="proof__item">
       <div class="proof__num">Live <em>Link</em></div>
       <div class="proof__label">Always up to date</div>
-      <div class="proof__desc">Your kit lives at a permanent link. Update your numbers at any time — brands always see your latest self.</div>
+      <div class="proof__desc">Your kit lives at a permanent link. Update your numbers any time. Brands always see your latest self.</div>
     </div>
   </section>
+
+  ${renderTrustStrip()}
 
   <footer class="foot">
     <div class="foot__credit">Built by <span>CreatorHQ</span> · Simulacra ecosystem</div>
@@ -2631,7 +2809,7 @@ export function renderCalculatorHTML() {
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>CreatorHQ — Rate Wizard</title>
+  <title>CreatorHQ · Rate Wizard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Instrument+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -2678,8 +2856,8 @@ export function renderCalculatorHTML() {
   </style>
 </head>
 <body>
+  ${renderSiteHeader({ current: 'calculator', back: { href: '/', label: 'Home' } })}
   <div class="wrap">
-    <a href="/" style="font-size:0.65rem; text-transform:uppercase; text-decoration:none; color:rgba(0,0,0,0.4); margin-bottom:2rem; display:inline-block;">← Back</a>
     <div class="eyebrow">Rate Wizard</div>
     <h1 id="wiz-title">Step 1: <em>Metrics.</em></h1>
 

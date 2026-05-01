@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
 import { authenticate, signSession, AUTH_COOKIE_OPTS } from './lib/auth.mjs';
 import { sendOTP, isValidPhone } from './lib/whatsapp.mjs';
-import { renderCardHTML, renderRateCardHTML, renderFormHTML, renderLandingHTML, renderCalculatorHTML } from './templates/render.js';
+import { renderCardHTML, renderRateCardHTML, renderFormHTML, renderLandingHTML, renderCalculatorHTML, renderNotFoundHTML } from './templates/render.js';
 import { calculateRate, calculateOverall } from './scripts/calculator.js';
 import { supabaseAdmin } from './lib/supabase.mjs';
 import { uploadCreatorPhoto } from './lib/photoStorage.mjs';
@@ -380,7 +380,13 @@ app.post('/create', upload.single('photo'), async (req, res) => {
     };
 
     await saveCreator(creator);
-    res.redirect(`/c/${creator.id}`);
+    // Pass ?created=1 so the kit page can show a "your kit is live, share it" banner
+    // on first view. The banner is suppressed on subsequent visits / shares.
+    const mode = req.body.mode === 'rate-card' ? 'rate-card' : 'kit';
+    const target = mode === 'rate-card'
+      ? `/c/${creator.id}/rate-card?created=1`
+      : `/c/${creator.id}?created=1`;
+    res.redirect(target);
   } catch (err) {
     console.error('create failed', err);
     res.status(500).type('text/plain').send(`Create failed: ${err.message}`);
@@ -391,7 +397,7 @@ app.post('/create', upload.single('photo'), async (req, res) => {
 app.get('/c/:id/edit', async (req, res) => {
   try {
     const creator = await loadCreator(req.params.id);
-    if (!creator) return res.status(404).type('text/plain').send('Not found');
+    if (!creator) return res.status(404).type('html').send(renderNotFoundHTML({ what: 'creator' }));
     const mode = req.query['rate-card'] ? 'rate-card' : 'kit';
     res.type('html').send(renderFormHTML(creator, { mode }));
   } catch (err) {
@@ -404,7 +410,7 @@ app.get('/c/:id/edit', async (req, res) => {
 app.post('/c/:id/update', upload.single('photo'), async (req, res) => {
   try {
     const existing = await loadCreator(req.params.id);
-    if (!existing) return res.status(404).type('text/plain').send('Not found');
+    if (!existing) return res.status(404).type('html').send(renderNotFoundHTML({ what: 'creator' }));
 
     const body = req.body;
 
@@ -439,8 +445,9 @@ app.post('/c/:id/update', upload.single('photo'), async (req, res) => {
 app.get('/c/:id', async (req, res) => {
   try {
     const creator = await loadCreator(req.params.id);
-    if (!creator) return res.status(404).type('text/plain').send('Not found');
-    res.type('html').send(renderCardHTML(creator, { forPDF: false }));
+    if (!creator) return res.status(404).type('html').send(renderNotFoundHTML({ what: 'creator' }));
+    const justCreated = req.query.created === '1';
+    res.type('html').send(renderCardHTML(creator, { forPDF: false, justCreated }));
   } catch (err) {
     console.error('GET /c/:id failed:', err.message);
     res.status(500).type('text/plain').send(`Render failed: ${err.message}`);
@@ -450,8 +457,9 @@ app.get('/c/:id', async (req, res) => {
 app.get('/c/:id/rate-card', async (req, res) => {
   try {
     const creator = await loadCreator(req.params.id);
-    if (!creator) return res.status(404).type('text/plain').send('Not found');
-    res.type('html').send(renderRateCardHTML(creator));
+    if (!creator) return res.status(404).type('html').send(renderNotFoundHTML({ what: 'creator' }));
+    const justCreated = req.query.created === '1';
+    res.type('html').send(renderRateCardHTML(creator, { justCreated }));
   } catch (err) {
     console.error('GET /c/:id/rate-card failed:', err.message);
     res.status(500).type('text/plain').send(`Render failed: ${err.message}`);
@@ -585,6 +593,12 @@ if (AUTH_ENABLED) {
   app.post('/api/auth/login', authDisabledHandler);
   app.post('/api/auth/verify', authDisabledHandler);
 }
+
+// Catch-all 404 — every other route lands here. Renders the branded 404
+// instead of Express's default text 404, so a stale share link is still on-brand.
+app.use((req, res) => {
+  res.status(404).type('html').send(renderNotFoundHTML({ what: 'page' }));
+});
 
 // Don't crash the server on a single async failure — log it.
 process.on('unhandledRejection', (reason) => {

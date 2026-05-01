@@ -8,7 +8,7 @@
   "subtitle": "Cultural Influencer · Lifestyle Advocate",
   "location": "Tembisa, Gauteng",
   "tagline": "From Tembisa. For everyone.",
-  "bio": "Khanyisile Khumalo is a rising digital powerhouse who has turned her everyday experiences into a relatable, high-engagement content platform. Known for infectious energy and unapologetic authenticity, she bridges the gap between grassroots township culture and modern lifestyle trends.\r\n\r\nHer journey began with a simple goal: document the beauty, humour, and hustle of Tembisa life. Today she is a voice for a generation that values realness over filters — merging comedy, traditional storytelling, and modern cultural commentary into a content identity that moves culture forward.",
+  "bio": "Khanyisile Khumalo is a rising digital powerhouse who has turned her everyday experiences into a relatable, high-engagement content platform. Known for infectious energy and unapologetic authenticity, she bridges the gap between grassroots township culture and modern lifestyle trends.\r\n\r\nHer journey began with a simple goal: document the beauty, humour, and hustle of Tembisa life. Today she is a voice for a generation that values realness over filters, merging comedy, traditional storytelling, and modern cultural commentary into a content identity that moves culture forward.",
   "email": "bookings@khanyisilekhumalo.co.za",
   "photo": {
     "url": "/uploads/pnkr6y9NW0.JPG",
@@ -33,7 +33,7 @@
   ],
   "bioParagraphs": [
     "Khanyisile Khumalo is a rising digital powerhouse who has turned her everyday experiences into a relatable, high-engagement content platform. Known for infectious energy and unapologetic authenticity, she bridges the gap between grassroots township culture and modern lifestyle trends.",
-    "Her journey began with a simple goal: document the beauty, humour, and hustle of Tembisa life. Today she is a voice for a generation that values realness over filters — merging comedy, traditional storytelling, and modern cultural commentary into a content identity that moves culture forward."
+    "Her journey began with a simple goal: document the beauty, humour, and hustle of Tembisa life. Today she is a voice for a generation that values realness over filters, merging comedy, traditional storytelling, and modern cultural commentary into a content identity that moves culture forward."
   ],
   "bioPillars": [
     {
@@ -42,7 +42,7 @@
     },
     {
       "label": "Peer-to-Peer Influence",
-      "text": "Unlike traditional celebrities, Khanyisile maintains a direct peer relationship with her audience — high comment-to-view ratios and loyalty that brands cannot manufacture."
+      "text": "Unlike traditional celebrities, Khanyisile maintains a direct peer relationship with her audience. High comment-to-view ratios and loyalty that brands cannot manufacture."
     }
   ],
   "platforms": {
@@ -78,7 +78,7 @@
     "interests": [
       "Fashion", "Beauty", "SA Humour", "Community Life", "Lifestyle", "Township Culture", "Music", "Cars", "FMCG"
     ],
-    "note": "Her audience does not simply watch her content — they follow her lead. She naturally converts digital engagement into physical presence, making her an ideal partner for brands seeking both cultural relevance and reach."
+    "note": "Her audience does not simply watch her content. They follow her lead. She naturally converts digital engagement into physical presence, making her an ideal partner for brands seeking both cultural relevance and reach."
   },
   "brands": [
     { "name": "Google",   "category": "Tech", "evidence": ["https://www.instagram.com/p/C5_x7j9NW0/"] },
@@ -102,7 +102,7 @@
     },
     {
       "name": "Custom Partnership",
-      "description": "Scoped per brief — ambassador,\ncommunity activation, co-creation",
+      "description": "Scoped per brief: ambassador,\ncommunity activation, co-creation",
       "price": "POA",
       "highlight": false
     }
