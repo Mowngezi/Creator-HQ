@@ -595,10 +595,13 @@ process.on('uncaughtException', (err) => {
 });
 
 // Local boot — skipped when imported by a serverless runtime.
+// Railway sets PORT automatically; explicit 0.0.0.0 bind ensures the
+// proxy can reach us on IPv4 even if the default node bind is v6-only.
 const PORT = process.env.PORT || 3001;
+const HOST = process.env.HOST || '0.0.0.0';
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
-    console.log(`CreatorHQ live at http://localhost:${PORT}`);
+  app.listen(PORT, HOST, () => {
+    console.log(`CreatorHQ live at http://${HOST}:${PORT}`);
     // Surface storage health at boot so we know if Supabase is reachable.
     supabaseAdmin
       .from('creators')
