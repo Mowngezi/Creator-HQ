@@ -434,7 +434,13 @@ app.post('/c/:id/update', upload.single('photo'), async (req, res) => {
     };
 
     await saveCreator(creator);
-    res.redirect(`/c/${creator.id}`);
+    // Mode-aware redirect to the saved-state banner: kit by default, rate-card
+    // when the form was opened with ?rate-card=1.
+    const wasRateCard = req.query['rate-card'] === '1' || req.body.mode === 'rate-card';
+    const target = wasRateCard
+      ? `/c/${creator.id}/rate-card?saved=1`
+      : `/c/${creator.id}?saved=1`;
+    res.redirect(target);
   } catch (err) {
     console.error('update failed', err);
     res.status(500).type('text/plain').send(`Update failed: ${err.message}`);
@@ -447,7 +453,8 @@ app.get('/c/:id', async (req, res) => {
     const creator = await loadCreator(req.params.id);
     if (!creator) return res.status(404).type('html').send(renderNotFoundHTML({ what: 'creator' }));
     const justCreated = req.query.created === '1';
-    res.type('html').send(renderCardHTML(creator, { forPDF: false, justCreated }));
+    const justSaved = req.query.saved === '1';
+    res.type('html').send(renderCardHTML(creator, { forPDF: false, justCreated, justSaved }));
   } catch (err) {
     console.error('GET /c/:id failed:', err.message);
     res.status(500).type('text/plain').send(`Render failed: ${err.message}`);
@@ -459,7 +466,8 @@ app.get('/c/:id/rate-card', async (req, res) => {
     const creator = await loadCreator(req.params.id);
     if (!creator) return res.status(404).type('html').send(renderNotFoundHTML({ what: 'creator' }));
     const justCreated = req.query.created === '1';
-    res.type('html').send(renderRateCardHTML(creator, { justCreated }));
+    const justSaved = req.query.saved === '1';
+    res.type('html').send(renderRateCardHTML(creator, { justCreated, justSaved }));
   } catch (err) {
     console.error('GET /c/:id/rate-card failed:', err.message);
     res.status(500).type('text/plain').send(`Render failed: ${err.message}`);

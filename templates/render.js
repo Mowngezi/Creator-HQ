@@ -135,7 +135,7 @@ export function renderNotFoundHTML({ what = 'page' } = {}) {
   <title>CreatorHQ · Not found</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Instrument+Sans:wght@300;400;500&display=swap');
+    ${localFonts()}
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Instrument Sans', system-ui, sans-serif; background: #fafafa; color: #0a0a0a; min-height: 100vh; display: flex; flex-direction: column; }
     main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 1.5rem; text-align: center; }
@@ -157,11 +157,114 @@ export function renderNotFoundHTML({ what = 'page' } = {}) {
 </html>`;
 }
 
+// ---- self-hosted typeface @font-face block --------------------------------
+// Replaces the prior @import url(googleapis...) which was render-blocking on
+// 3G. All six woff2 files live in public/fonts/ and ship from our domain.
+// Cormorant Garamond is variable-weight in the file; we declare it once for
+// each style (normal + italic) and let the font-weight CSS pick the axis.
+// Instrument Sans is also variable; one declaration covers all weights.
+// font-display:swap so text renders immediately in the system fallback then
+// re-paints when the woff2 lands.
+function localFonts() {
+  return /* css */ `
+    @font-face {
+      font-family: 'Cormorant Garamond';
+      font-style: normal;
+      font-weight: 300 600;
+      font-display: swap;
+      src: url('/fonts/cormorant-latin.woff2') format('woff2');
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+    @font-face {
+      font-family: 'Cormorant Garamond';
+      font-style: normal;
+      font-weight: 300 600;
+      font-display: swap;
+      src: url('/fonts/cormorant-latin-ext.woff2') format('woff2');
+      unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+    }
+    @font-face {
+      font-family: 'Cormorant Garamond';
+      font-style: italic;
+      font-weight: 300 400;
+      font-display: swap;
+      src: url('/fonts/cormorant-italic-latin.woff2') format('woff2');
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+    @font-face {
+      font-family: 'Cormorant Garamond';
+      font-style: italic;
+      font-weight: 300 400;
+      font-display: swap;
+      src: url('/fonts/cormorant-italic-latin-ext.woff2') format('woff2');
+      unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+    }
+    @font-face {
+      font-family: 'Instrument Sans';
+      font-style: normal;
+      font-weight: 300 500;
+      font-display: swap;
+      src: url('/fonts/instrument-latin.woff2') format('woff2');
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+    @font-face {
+      font-family: 'Instrument Sans';
+      font-style: normal;
+      font-weight: 300 500;
+      font-display: swap;
+      src: url('/fonts/instrument-latin-ext.woff2') format('woff2');
+      unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+    }
+  `;
+}
+
+// ---- Open Graph + Twitter card meta -------------------------------------
+// Renders the share-preview metadata for a page. WhatsApp, iMessage, Twitter,
+// LinkedIn, Slack all read these tags when a URL is pasted. Without them the
+// preview is blank or shows random page text. With them the preview shows
+// photo + name + tagline.
+//
+// Usage:
+//   ${ogMeta({ title: '...', description: '...', image: '...', url: '...', type: 'profile' })}
+//
+// Pass `image` as an absolute URL (https://...) — relative URLs don't work in
+// social previews.
+function ogMeta({ title, description, image, url, type = 'website' } = {}) {
+  const safeTitle = esc(title || 'CreatorHQ');
+  const safeDesc = esc(description || 'Designed, shareable media kits for African creators.');
+  const safeImage = esc(image || '');
+  const safeUrl = esc(url || '');
+  return `
+  <meta property="og:type" content="${esc(type)}">
+  <meta property="og:title" content="${safeTitle}">
+  <meta property="og:description" content="${safeDesc}">
+  ${safeImage ? `<meta property="og:image" content="${safeImage}">` : ''}
+  ${safeUrl ? `<meta property="og:url" content="${safeUrl}">` : ''}
+  <meta property="og:site_name" content="CreatorHQ">
+  <meta name="twitter:card" content="${safeImage ? 'summary_large_image' : 'summary'}">
+  <meta name="twitter:title" content="${safeTitle}">
+  <meta name="twitter:description" content="${safeDesc}">
+  ${safeImage ? `<meta name="twitter:image" content="${safeImage}">` : ''}
+  <meta name="description" content="${safeDesc}">`;
+}
+
+// Build an absolute URL for a path. Honors SITE_URL env (set on Railway) so
+// the share previews work on production. Falls back to the production domain
+// when running locally.
+function absoluteUrl(pathOrUrl) {
+  if (!pathOrUrl) return '';
+  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+  const base = process.env.SITE_URL || 'https://creator-hq-production.up.railway.app';
+  const baseTrim = base.replace(/\/$/, '');
+  const pathPrefixed = pathOrUrl.startsWith('/') ? pathOrUrl : '/' + pathOrUrl;
+  return baseTrim + pathPrefixed;
+}
+
 // ---- shared head / fonts / base CSS (used by form + landing) ----
 
 function headCSS() {
   return /* css */ `
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Instrument+Sans:wght@300;400;500&display=swap');
+    ${localFonts()}
 
     :root {
       --black: #0a0a0a;
@@ -460,8 +563,8 @@ function headCSS() {
       animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
     }
     @keyframes slideUp {
-      from { transform: translate(-50%, 100%) opacity: 0; }
-      to { transform: translate(-50%, 0) opacity: 1; }
+      from { transform: translate(-50%, 100%); opacity: 0; }
+      to { transform: translate(-50%, 0); opacity: 1; }
     }
     .nudge__content { display: flex; align-items: center; gap: 0.75rem; flex: 1; }
     .nudge__icon { font-size: 1.2rem; }
@@ -563,7 +666,6 @@ function headCSS() {
 // Renders the post-create banner. Shown on first kit view (?created=1).
 // User can dismiss; sharing the URL strips the param naturally.
 function renderCreatedBanner(creator, productLabel = 'Media kit') {
-  const shareUrl = `https://creator-hq-production.up.railway.app/c/${esc(creator.id)}`;
   return `
   <div id="created-banner" style="position:sticky; top:54px; z-index:40; background:#0a0a0a; color:#fff; padding:0.9rem 1.25rem; font-family:'Instrument Sans',sans-serif; font-size:0.82rem;">
     <div style="max-width:980px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
@@ -589,7 +691,25 @@ function renderCreatedBanner(creator, productLabel = 'Media kit') {
   </div>`;
 }
 
-export function renderCardHTML(creator, { forPDF = false, justCreated = false } = {}) {
+// Renders the post-save confirmation banner. Quieter than the post-create
+// banner because the user is already oriented; this is just acknowledgement.
+// Auto-dismisses after 4 seconds. The URL still includes ?saved=1 if the user
+// stays on the page, but reload / share strips it naturally.
+function renderSavedBanner() {
+  return `
+  <div id="saved-banner" role="status" aria-live="polite" style="position:fixed; left:50%; top:1.25rem; transform:translateX(-50%); z-index:60; background:#0a0a0a; color:#fff; padding:0.55rem 1.1rem 0.55rem 0.75rem; border-radius:100px; font-family:'Instrument Sans',sans-serif; font-size:0.78rem; display:flex; align-items:center; gap:0.55rem; box-shadow:0 8px 24px rgba(0,0,0,0.18); transition:opacity 0.4s ease, transform 0.4s ease;">
+    <span style="display:inline-flex; align-items:center; justify-content:center; width:1.1rem; height:1.1rem; border-radius:50%; background:#22c55e; color:#0a0a0a; font-size:0.6rem; font-weight:700;">✓</span>
+    <span>Changes saved.</span>
+    <script>
+      setTimeout(function(){
+        var b = document.getElementById('saved-banner');
+        if (b) { b.style.opacity = '0'; b.style.transform = 'translateX(-50%) translateY(-6px)'; setTimeout(function(){ b.remove(); }, 400); }
+      }, 4000);
+    </script>
+  </div>`;
+}
+
+export function renderCardHTML(creator, { forPDF = false, justCreated = false, justSaved = false } = {}) {
   // Decay Rule calculation (7-day visual downgrade)
   const statsDate = creator.statsUpdatedAt ? new Date(creator.statsUpdatedAt) : null;
   const daysOld = statsDate ? Math.floor((Date.now() - statsDate) / (1000 * 60 * 60 * 24)) : 0;
@@ -656,14 +776,26 @@ export function renderCardHTML(creator, { forPDF = false, justCreated = false } 
 
   const year = new Date(creator.createdAt || Date.now()).getFullYear();
 
+  // Share-preview metadata: photo + name + tagline shown when the URL is
+  // pasted into WhatsApp / iMessage / Twitter / Slack / LinkedIn.
+  const kitTitle = `${firstName} ${lastName} · Media Kit`;
+  const kitDesc = creator.tagline
+    || (creator.bio || '').toString().trim().split(/\.\s|\n/)[0].slice(0, 200)
+    || `Media kit for ${firstName} ${lastName}.`;
+  const kitImage = creator.photo?.url ? absoluteUrl(creator.photo.url) : '';
+  const kitUrl = absoluteUrl(`/c/${creator.id}`);
+
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>${firstName} ${lastName} · Media Kit</title>
+  <title>${esc(kitTitle)}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Instrument+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  ${ogMeta({ title: kitTitle, description: kitDesc, image: kitImage, url: kitUrl, type: 'profile' })}
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <meta name="theme-color" content="#0a0a0a">
+  <style>${localFonts()}</style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     :root {
@@ -876,11 +1008,30 @@ export function renderCardHTML(creator, { forPDF = false, justCreated = false } 
       .rate-type { font-size: 0.52rem; }
 
       /* ── Footer ── */
-      .footer { padding: 3rem 0 2rem; }
+      .footer { padding: 3rem 0 6rem; }
       .footer-inner { flex-direction: column; align-items: flex-start; gap: 2rem; }
       .footer-right { text-align: left; }
       .footer-bottom { flex-direction: column; align-items: flex-start; gap: 0.8rem; }
       .footer-name { font-size: 1.8rem; }
+
+      /* Footer gets extra bottom padding on mobile so the floating action bar
+         doesn't sit on top of the timestamp / credit when the user reaches it. */
+
+      /* ── Action bar mobile ── */
+      /* The action bar grew an Edit pill, so on narrow phones we let it
+         scroll horizontally inside its container rather than wrap or clip. */
+      #action-bar {
+        bottom: 1rem;
+        right: 1rem;
+        left: 1rem;
+        padding: 0.4rem 0.6rem;
+        max-width: calc(100vw - 2rem);
+        overflow-x: auto;
+        scrollbar-width: none;
+        justify-content: flex-start;
+      }
+      #action-bar::-webkit-scrollbar { display: none; }
+      #action-bar button, #action-bar a { font-size: 0.68rem; padding: 0.3rem 0.55rem; }
 
       /* ── Prevent overflow ── */
       .hero, .bio-section, .stats-section, .brands-section, .footer { overflow-x: hidden; }
@@ -896,6 +1047,7 @@ ${forPDF ? '' : renderSiteHeader({
 })}
 
 ${(!forPDF && justCreated) ? renderCreatedBanner(creator, 'Media kit') : ''}
+${(!forPDF && justSaved && !justCreated) ? renderSavedBanner() : ''}
 
 <!-- ── DATED OVERLAY ── -->
 <div class="${isDated ? 'is-dated' : ''}">
@@ -1113,11 +1265,23 @@ ${audience ? `
 </div>
 
 <!-- ── FLOATING ACTION BAR ── -->
+<!--
+  Owner-control affordances are stacked left-to-right in order of share-then-edit
+  intent: Copy Link first (you came here to share), Edit second (this is your kit,
+  here is how to update it), Rate Card third (cross-nav to the other view),
+  Download PDF last (the export). On mobile this scrolls horizontally inside the
+  pill if needed; on desktop it sits bottom-right of the viewport.
+-->
 <div id="action-bar">
   <button id="copy-btn" onclick="copyLink()">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
     <span>Copy Link</span>
   </button>
+  <div class="bar-divider"></div>
+  <a href="/c/${esc(creator.id)}/edit" style="display:flex;align-items:center;gap:0.45rem;color:rgba(255,255,255,0.7);text-decoration:none;font-family:'Instrument Sans',sans-serif;font-size:0.7rem;font-weight:400;letter-spacing:0.06em;padding:0.3rem 0.6rem;border-radius:100px;white-space:nowrap;transition:color 0.15s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+    <span>Edit</span>
+  </a>
   <div class="bar-divider"></div>
   <a href="/c/${esc(creator.id)}/rate-card" style="display:flex;align-items:center;gap:0.45rem;color:rgba(255,255,255,0.7);text-decoration:none;font-family:'Instrument Sans',sans-serif;font-size:0.7rem;font-weight:400;letter-spacing:0.06em;padding:0.3rem 0.6rem;border-radius:100px;white-space:nowrap;transition:color 0.15s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">
     Rate Card →
@@ -1218,7 +1382,7 @@ export function renderPDFHTML(creator, photoBase64 = null) {
 <head>
   <meta charset="utf-8"/>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Instrument+Sans:wght@300;400;500&display=swap');
+    ${localFonts()}
 
     :root {
       --paper: #f0ece4;
@@ -1800,7 +1964,7 @@ export function renderPDFHTML(creator, photoBase64 = null) {
 
 // ---- Rate Card (clean 1-pager) ----
 
-export function renderRateCardHTML(creator, { justCreated = false } = {}) {
+export function renderRateCardHTML(creator, { justCreated = false, justSaved = false } = {}) {
   // Decay Rule calculation (7-day visual downgrade)
   const statsDate = creator.statsUpdatedAt ? new Date(creator.statsUpdatedAt) : null;
   const daysOld = statsDate ? Math.floor((Date.now() - statsDate) / (1000 * 60 * 60 * 24)) : 0;
@@ -1828,14 +1992,24 @@ export function renderRateCardHTML(creator, { justCreated = false } = {}) {
 
   const year = new Date(creator.createdAt || Date.now()).getFullYear();
 
+  // Share-preview metadata for the rate card.
+  const rcTitle = `${firstName} ${lastName} · Rate Card`;
+  const rcDesc = creator.tagline
+    || `Rates for ${firstName} ${lastName}. ${creator.role || creator.niche || 'Creator'}.`;
+  const rcImage = creator.photo?.url ? absoluteUrl(creator.photo.url) : '';
+  const rcUrl = absoluteUrl(`/c/${creator.id}/rate-card`);
+
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>${firstName} ${lastName} · Rate Card</title>
+  <title>${esc(rcTitle)}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Instrument+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  ${ogMeta({ title: rcTitle, description: rcDesc, image: rcImage, url: rcUrl, type: 'profile' })}
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <meta name="theme-color" content="#0a0a0a">
+  <style>${localFonts()}</style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
@@ -1882,6 +2056,7 @@ ${renderSiteHeader({
   theme: 'on-light'
 })}
 ${justCreated ? renderCreatedBanner(creator, 'Rate card') : ''}
+${(justSaved && !justCreated) ? renderSavedBanner() : ''}
 ${isDated ? `<div class="dated-badge">${datedLabel}</div>` : ''}
 <div class="page">
   <div class="header">
@@ -1947,6 +2122,8 @@ ${isDated ? `<div class="dated-badge">${datedLabel}</div>` : ''}
 
 <div id="action-bar">
   <button onclick="navigator.clipboard.writeText(window.location.href).then(()=>{this.textContent='Copied';setTimeout(()=>this.textContent='Copy Link',2000)})">Copy Link</button>
+  <div class="bar-divider"></div>
+  <a href="/c/${esc(creator.id)}/edit?rate-card=1">Edit</a>
   <div class="bar-divider"></div>
   <a href="/c/${esc(creator.id)}">← Full Kit</a>
   <div class="bar-divider"></div>
@@ -2542,9 +2719,22 @@ export function renderLandingHTML() {
   <meta charset="utf-8" />
   <title>CreatorHQ · Media Kits for African Creators</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Instrument+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  ${ogMeta({
+    title: 'CreatorHQ · Media Kits for African Creators',
+    description: 'Build a designed, data-backed media kit and rate card. Share a permanent link. Download a PDF. No signup needed.',
+    image: absoluteUrl('/og-default.png'),
+    url: absoluteUrl('/'),
+    type: 'website'
+  })}
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="CreatorHQ">
   <style>
+    ${localFonts()}
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html { scroll-behavior: smooth; }
     body {
@@ -2811,9 +3001,8 @@ export function renderCalculatorHTML() {
   <meta charset="utf-8" />
   <title>CreatorHQ · Rate Wizard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Instrument+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <style>
+    ${localFonts()}
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       background: #f0ece4;
