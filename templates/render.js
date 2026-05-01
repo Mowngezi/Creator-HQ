@@ -38,81 +38,96 @@ const fmtCurrency = (n) => {
 //   renderSiteHeader({ current: 'kit', back: { href: '/', label: 'Home' }, theme: 'on-dark' })
 //
 // theme: 'on-light' (default) or 'on-dark' for use over the dark cover.
+// renderSiteHeader: matches the ORIGINAL `.nav` aesthetic from the landing
+// (commit 2d11d0d) — small, letter-spaced Instrument Sans wordmark, no
+// background, hairline bottom rule. Extended with the nav buttons we
+// actually need (Home, contextual back). Theme-aware so it reads correctly
+// over the dark cover (kit page) AND on the paper-coloured form / 404.
+//
+// Usage:
+//   renderSiteHeader({ current: 'landing' })
+//   renderSiteHeader({ current: 'form', back: { href: '/', label: 'Cancel' } })
+//   renderSiteHeader({ current: 'kit', back: { href: '/', label: 'Home' }, theme: 'on-dark' })
 function renderSiteHeader({ current = '', back = null, theme = 'on-light' } = {}) {
   const onDark = theme === 'on-dark';
-  const fg = onDark ? 'rgba(255,255,255,0.92)' : '#0a0a0a';
-  const fgMuted = onDark ? 'rgba(255,255,255,0.55)' : 'rgba(10,10,10,0.55)';
-  const bg = onDark ? 'transparent' : 'rgba(255,255,255,0.92)';
-  const border = onDark ? 'rgba(255,255,255,0.08)' : 'rgba(10,10,10,0.08)';
+  const fg = onDark ? 'rgba(255,255,255,0.4)' : 'rgba(10,10,10,0.55)';
+  const fgHover = onDark ? 'rgba(255,255,255,0.85)' : '#0a0a0a';
+  const border = onDark ? 'rgba(255,255,255,0.05)' : 'rgba(10,10,10,0.06)';
   return `
   <style>
-    .chq-header {
-      position: sticky; top: 0; z-index: 50;
+    .chq-nav {
+      position: relative; z-index: 1;
+      padding: 2.5rem 4rem;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0.85rem 1.25rem;
-      background: ${bg};
-      backdrop-filter: saturate(140%) blur(6px);
-      -webkit-backdrop-filter: saturate(140%) blur(6px);
       border-bottom: 1px solid ${border};
+      background: transparent;
     }
-    .chq-header__logo {
-      display: inline-flex; align-items: baseline; gap: 0.55rem;
-      text-decoration: none; color: ${fg};
-      font-family: 'Cormorant Garamond', Georgia, serif;
-      font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em;
+    .chq-nav__logo {
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 0.65rem; font-weight: 500;
+      letter-spacing: 0.35em; text-transform: uppercase;
+      color: ${fg};
+      text-decoration: none;
+      transition: color 0.15s;
     }
-    .chq-header__nav { display: flex; align-items: center; gap: 0.6rem; font-family: 'Instrument Sans', sans-serif; }
-    .chq-header__nav a {
-      color: ${fgMuted}; text-decoration: none;
-      font-size: 0.72rem; letter-spacing: 0.04em;
-      padding: 0.4rem 0.6rem; border-radius: 6px;
-      transition: color 0.15s, border-color 0.15s, background 0.15s;
+    .chq-nav__logo:hover { color: ${fgHover}; }
+    .chq-nav__items {
+      display: flex; align-items: center; gap: 1.75rem;
+      font-family: 'Instrument Sans', sans-serif;
     }
-    .chq-header__nav a:hover { color: ${fg}; }
-    .chq-header__back {
-      border: 1px solid ${border};
+    .chq-nav__items a {
+      font-size: 0.6rem; font-weight: 500;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: ${fg}; text-decoration: none;
+      transition: color 0.15s;
     }
-    .chq-header__back:hover { border-color: ${fg}; }
-    @media (max-width: 480px) {
-      .chq-header { padding: 0.7rem 0.9rem; }
-      .chq-header__logo { font-size: 0.95rem; }
-      .chq-header__nav { gap: 0.35rem; }
-      .chq-header__nav a { padding: 0.35rem 0.5rem; font-size: 0.7rem; }
+    .chq-nav__items a:hover { color: ${fgHover}; }
+    @media (max-width: 720px) {
+      .chq-nav { padding: 1.5rem; }
+      .chq-nav__items { gap: 1.1rem; }
+      .chq-nav__items a { font-size: 0.55rem; letter-spacing: 0.18em; }
     }
   </style>
-  <header class="chq-header">
-    <a href="/" class="chq-header__logo" aria-label="CreatorHQ home">CreatorHQ</a>
-    <nav class="chq-header__nav">
+  <nav class="chq-nav">
+    <a href="/" class="chq-nav__logo" aria-label="CreatorHQ home">CreatorHQ</a>
+    <div class="chq-nav__items">
       ${current !== 'landing' ? `<a href="/">Home</a>` : ''}
-      ${back ? `<a href="${esc(back.href)}" class="chq-header__back">← ${esc(back.label)}</a>` : ''}
-    </nav>
-  </header>`;
+      ${back ? `<a href="${esc(back.href)}">← ${esc(back.label)}</a>` : ''}
+    </div>
+  </nav>`;
 }
 
-// ---- shared trust strip (landing + form) -----------------------------------
-// Tells a stranger: who built this, who's already on it, what we do with data,
-// why no signup. The single biggest first-impression boost for the
-// dark-promoter wave when Khanyi shares.
-function renderTrustStrip() {
+// ---- shared trust testimonial (landing) -----------------------------------
+// Replaces the prior four-column box. Single quiet pull-quote in italic
+// Cormorant from Khanyi (placeholder voice; refine with her actual words
+// before merge to main). Caption below names her, links to her kit, and
+// communicates the trust signals (no signup, data stays yours, made in SA)
+// as quiet text rather than feature boxes. Editorial, not SaaS.
+function renderTrustStrip({ theme = 'dark' } = {}) {
+  const onDark = theme === 'dark';
+  const fg = onDark ? '#f8f5f0' : '#0a0a0a';
+  const fgQuiet = onDark ? 'rgba(248,245,240,0.55)' : 'rgba(10,10,10,0.55)';
+  const fgFaint = onDark ? 'rgba(248,245,240,0.32)' : 'rgba(10,10,10,0.42)';
+  const ruleColor = onDark ? 'rgba(255,255,255,0.06)' : 'rgba(10,10,10,0.08)';
+  const linkBorder = onDark ? 'rgba(248,245,240,0.18)' : 'rgba(10,10,10,0.2)';
   return `
-  <section class="chq-trust" style="border-top:1px solid rgba(10,10,10,0.08); border-bottom:1px solid rgba(10,10,10,0.08); padding:1.5rem 1.25rem; background:#fafafa;">
-    <div style="max-width:980px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:1.5rem; font-family:'Instrument Sans',sans-serif; font-size:0.78rem; line-height:1.5; color:rgba(10,10,10,0.7);">
-      <div>
-        <div style="font-size:0.62rem; letter-spacing:0.16em; text-transform:uppercase; color:rgba(10,10,10,0.5); margin-bottom:0.4rem;">Built in SA</div>
-        Made by Mowa Khoza in Johannesburg, for African creators.
+  <section class="chq-testimonial" style="border-top:1px solid ${ruleColor}; border-bottom:1px solid ${ruleColor}; padding:5rem 2rem;">
+    <div style="max-width:780px; margin:0 auto; text-align:center;">
+      <blockquote style="font-family:'Cormorant Garamond', serif; font-style:italic; font-weight:300; font-size:clamp(1.5rem, 3.2vw, 2rem); line-height:1.4; color:${fg}; margin:0 0 2rem; letter-spacing:-0.01em;">
+        &ldquo;A brand asked for my rates on a Tuesday. By Wednesday I sent them a link. By Friday we were shooting.&rdquo;
+      </blockquote>
+      <div style="font-family:'Instrument Sans', sans-serif; font-size:0.62rem; letter-spacing:0.22em; text-transform:uppercase; color:${fgQuiet};">
+        <a href="/c/KhKumalo" style="color:${fg}; text-decoration:none; border-bottom:1px solid ${linkBorder}; padding-bottom:1px;">Khanyisile Khumalo</a>
+        <span style="margin:0 0.6rem; color:${fgFaint};">·</span>
+        Tembisa
+        <span style="margin:0 0.6rem; color:${fgFaint};">·</span>
+        On CreatorHQ since April
       </div>
-      <div>
-        <div style="font-size:0.62rem; letter-spacing:0.16em; text-transform:uppercase; color:rgba(10,10,10,0.5); margin-bottom:0.4rem;">Used by</div>
-        <a href="/c/KhKumalo" style="color:rgba(10,10,10,0.7); border-bottom:1px solid rgba(10,10,10,0.2); text-decoration:none;">Khanyisile Khumalo</a>, Tembisa creator. Brands have her on file.
-      </div>
-      <div>
-        <div style="font-size:0.62rem; letter-spacing:0.16em; text-transform:uppercase; color:rgba(10,10,10,0.5); margin-bottom:0.4rem;">Your data</div>
-        Stays yours. You own the URL. Edit or delete any time. No tracking pixels, no resale.
-      </div>
-      <div>
-        <div style="font-size:0.62rem; letter-spacing:0.16em; text-transform:uppercase; color:rgba(10,10,10,0.5); margin-bottom:0.4rem;">No signup</div>
-        Build a kit in 4 minutes without an account. Add login later if you want analytics or edit-from-anywhere.
-      </div>
+    </div>
+    <div style="max-width:780px; margin:3rem auto 0; padding-top:2rem; border-top:1px solid ${ruleColor}; display:flex; justify-content:center; gap:2.5rem; flex-wrap:wrap; font-family:'Instrument Sans',sans-serif; font-size:0.72rem; color:${fgQuiet}; letter-spacing:0.02em;">
+      <span>Built in Johannesburg</span>
+      <span>No signup needed</span>
+      <span>Your data stays yours</span>
     </div>
   </section>`;
 }
@@ -2782,17 +2797,100 @@ export function renderLandingHTML() {
       border-radius: 100px;
     }
 
+    /* Hero is a two-column grid: copy left, image-with-phone-frame right.
+       On mobile it stacks (image on top, copy below) — image-dominant layout
+       per the gallery direction. The photo is Khanyi's locked portrait; the
+       phone frame floats over its lower-left, showing the kit's cover crop. */
     .hero {
       position: relative;
       z-index: 1;
       flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      padding: 8rem 4rem 6rem;
-      max-width: 1100px;
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 3rem;
+      align-items: center;
+      padding: 5rem 4rem 5rem;
+      max-width: 1180px;
       margin: 0 auto;
       width: 100%;
+    }
+    .hero__copy { display: flex; flex-direction: column; }
+    .hero__visual {
+      position: relative;
+      aspect-ratio: 4 / 5;
+      max-width: 480px;
+      width: 100%;
+      justify-self: end;
+    }
+    /* The hero photo is treated transparently — no brightness filter, no
+       overlay. Whatever Mow supplies is what renders. The image itself is
+       the contrast move; CSS stays out of the way. object-position can be
+       tweaked via the inline style attribute on the img tag if a future
+       photo needs different framing. */
+    .hero__photo {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center 30%;
+      border-radius: 4px;
+    }
+    /* The phone-shaped card floats over the lower-left of the photo and shows
+       Khanyi's cover crop: portrait + name + handle. Generic phone outline
+       (no notch, no status bar). Square-on, no tilt. Editorial, not SaaS. */
+    .hero__phone {
+      position: absolute;
+      bottom: -1.5rem;
+      left: -1.5rem;
+      width: 52%;
+      max-width: 220px;
+      aspect-ratio: 9 / 19;
+      background: #0a0a0a;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 22px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5), 0 8px 16px rgba(0,0,0,0.4);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .hero__phone-photo {
+      width: 100%;
+      height: 62%;
+      object-fit: cover;
+      object-position: center 30%;
+    }
+    .hero__phone-text {
+      flex: 1;
+      padding: 0.85rem 0.9rem 1rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      background: linear-gradient(180deg, rgba(10,10,10,0) 0%, #0a0a0a 30%);
+      margin-top: -3rem;
+      position: relative;
+    }
+    .hero__phone-eyebrow {
+      font-size: 0.42rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+      margin-bottom: 0.35rem;
+    }
+    .hero__phone-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.05rem;
+      line-height: 1.05;
+      color: #f8f5f0;
+      letter-spacing: -0.01em;
+    }
+    .hero__phone-name em { font-style: italic; color: rgba(248,245,240,0.65); }
+    .hero__phone-handle {
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 0.55rem;
+      color: rgba(255,255,255,0.4);
+      margin-top: 0.35rem;
+      letter-spacing: 0.04em;
     }
     .hero__eyebrow {
       font-size: 0.58rem;
@@ -2926,36 +3024,66 @@ export function renderLandingHTML() {
     .foot__link { font-size: 0.52rem; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(255,255,255,0.15); text-decoration: none; }
     .foot__link:hover { color: rgba(255,255,255,0.35); }
 
-    @media (max-width: 720px) {
-      .nav { padding: 1.5rem; }
-      .hero { padding: 5rem 1.5rem 4rem; }
-      .hero__title { font-size: 3.5rem; }
+    @media (max-width: 860px) {
+      /* Mobile-first: image dominant on top, copy below as caption.
+         Magazine-cover logic — the photo carries the message. */
+      .hero {
+        grid-template-columns: 1fr;
+        padding: 2.5rem 1.5rem 4rem;
+        gap: 2.5rem;
+      }
+      .hero__visual {
+        order: 1;
+        max-width: 100%;
+        aspect-ratio: 4 / 5;
+        justify-self: stretch;
+      }
+      .hero__copy { order: 2; }
+      .hero__phone { width: 44%; max-width: 180px; bottom: -1rem; left: -0.75rem; }
+      .hero__title { font-size: clamp(2.6rem, 11vw, 4rem); }
+      .hero__sub { font-size: 0.92rem; margin-bottom: 2rem; }
       .proof { grid-template-columns: 1fr; padding: 0; }
       .foot { flex-direction: column; gap: 0.8rem; padding: 2rem 1.5rem; }
+    }
+    @media (max-width: 480px) {
+      .hero__phone { width: 50%; max-width: 160px; }
     }
   </style>
 </head>
 <body>
-  ${renderSiteHeader({ current: 'landing' })}
+  ${renderSiteHeader({ current: 'landing', theme: 'on-dark' })}
 
   <main class="hero">
-    <div class="hero__eyebrow">For African Creators</div>
-    <h1 class="hero__title">Your kit.<br><em>Your rate.<br>Your terms.</em></h1>
-    <div class="hero__rule"></div>
-    <p class="hero__sub">Build a media kit that opens doors. Walk into brand meetings with a designed, data-backed rate card and a PDF you can send tonight.</p>
-    <div class="hero__cta-row">
-      <a href="/new?rate-card=1" class="hero__cta">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        Get my rate card
-      </a>
-      <a href="/new" class="hero__cta hero__cta--ghost">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Build my media kit
+    <div class="hero__copy">
+      <div class="hero__eyebrow">For African Creators</div>
+      <h1 class="hero__title">Your kit.<br><em>Your rate. Your terms.</em></h1>
+      <div class="hero__rule"></div>
+      <p class="hero__sub">A designed, data-backed media kit you can build in five minutes and share tonight. No signup. No screenshots. No guessing what to charge.</p>
+      <div class="hero__cta-row">
+        <a href="/new?rate-card=1" class="hero__cta">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Get my rate card
+        </a>
+        <a href="/new" class="hero__cta hero__cta--ghost">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Build my media kit
+        </a>
+      </div>
+      <a href="/calculator" class="hero__calc">
+        Not sure what to charge? Calculate my rate →
       </a>
     </div>
-    <a href="/calculator" class="hero__calc">
-      Not sure what to charge? Calculate my rate →
-    </a>
+    <div class="hero__visual">
+      <img class="hero__photo" src="/uploads/pnkr6y9NW0.JPG" alt="" loading="eager" fetchpriority="high">
+      <div class="hero__phone" aria-hidden="true">
+        <img class="hero__phone-photo" src="/uploads/pnkr6y9NW0.JPG" alt="">
+        <div class="hero__phone-text">
+          <div class="hero__phone-eyebrow">Media Kit · 2026</div>
+          <div class="hero__phone-name">Khanyisile<br><em>Khumalo</em></div>
+          <div class="hero__phone-handle">@khanyisilekhumalo · Tembisa</div>
+        </div>
+      </div>
+    </div>
   </main>
 
   <section class="proof">
