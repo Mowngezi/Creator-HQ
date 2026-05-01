@@ -250,11 +250,14 @@ function ogMeta({ title, description, image, url, type = 'website' } = {}) {
 
 // Build an absolute URL for a path. Honors SITE_URL env (set on Railway) so
 // the share previews work on production. Falls back to the production domain
-// when running locally.
+// when running locally. Defensive against SITE_URL being set without a scheme
+// (which silently breaks OG / Twitter previews — they require https://...).
 function absoluteUrl(pathOrUrl) {
   if (!pathOrUrl) return '';
   if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
-  const base = process.env.SITE_URL || 'https://creator-hq-production.up.railway.app';
+  let base = process.env.SITE_URL || 'https://creator-hq-production.up.railway.app';
+  // Add scheme if SITE_URL was set without one (common Railway config mistake).
+  if (!/^https?:\/\//i.test(base)) base = 'https://' + base;
   const baseTrim = base.replace(/\/$/, '');
   const pathPrefixed = pathOrUrl.startsWith('/') ? pathOrUrl : '/' + pathOrUrl;
   return baseTrim + pathPrefixed;
