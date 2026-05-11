@@ -1750,8 +1750,37 @@ export function renderPDFHTML(creator, photoBase64 = null) {
   const brands   = creator.brands?.length
     ? creator.brands.map(b => ({ brand: b.name, note: b.category }))
     : (creator.workPreview || []);
-  const packages = creator.packages || [];
-  const rates    = creator.rates    || [];
+  const packages   = creator.packages   || [];
+  const rates      = creator.customRates || []; // customRates is the [{label,amount}] array
+
+  // Tagline display: "From Tembisa. For everyone." →
+  //   "From <em>Tembisa.</em><br>For everyone."
+  const tagStr = creator.tagline || '';
+  let taglineDisplay;
+  if (tagStr.startsWith('From ')) {
+    const firstDot = tagStr.indexOf('.');
+    const locPart  = esc(tagStr.slice(5, firstDot >= 0 ? firstDot : undefined));
+    const restPart = firstDot >= 0 ? esc(tagStr.slice(firstDot + 1).trim()) : '';
+    taglineDisplay = `From <em>${locPart}.</em>${restPart ? `<br>${restPart}` : ''}`;
+  } else {
+    const parts = tagStr.split(/\.\s+/);
+    taglineDisplay = parts.map((p, i) => {
+      const t = esc(p) + (i < parts.length - 1 ? '.' : '');
+      return i === 0 ? `<em>${t}</em>` : t;
+    }).join('<br>');
+  }
+
+  // Role labels: niche + subtitle split on · or -
+  const roles = [
+    creator.niche,
+    ...(creator.subtitle?.split(/[·\-]/).map(s => s.trim()).filter(Boolean) || [])
+  ].filter(Boolean);
+
+  // Location tags: audience.locations names + city from creator.location
+  const cityFromLocation = location ? location.split(',')[0].trim() : '';
+  const locNames = (audience?.locations || []).map(l => typeof l === 'object' ? l.name : String(l));
+  const locationTags = [...(cityFromLocation ? [cityFromLocation] : []), ...locNames]
+    .filter((v, i, a) => v && a.indexOf(v) === i); // deduplicate
 
   const photoSrc = photoBase64 || (creator.photo?.url ? esc(creator.photo.url) : '');
 
@@ -1904,36 +1933,53 @@ export function renderPDFHTML(creator, photoBase64 = null) {
       color: rgba(255,255,255,0.2);
     }
 
-    /* ── PAGE 2: BIO ── */
-    .bio-layout {
+    /* ── PAGE 2: BIO (left) + AUDIENCE + BRANDS (right) ── */
+    .p2-grid {
       display: grid;
-      grid-template-columns: 200px 1fr;
-      gap: 48px;
-      padding: 44px 48px;
+      grid-template-columns: 1fr 1fr;
+      height: 1123px;
       background: var(--paper);
     }
-    .bio-sidebar__title {
+    .p2-bio {
+      padding: 52px 36px 52px 48px;
+      border-right: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .p2-eyebrow {
+      font-size: 5.5pt;
+      font-weight: 500;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--smoke);
+      margin-bottom: 20px;
+    }
+    .p2-headline {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 26pt;
+      font-size: 40pt;
       font-weight: 300;
-      line-height: 1.05;
+      line-height: 0.98;
       color: var(--deep);
-      margin-top: 10px;
+      margin-bottom: 22px;
     }
-    .bio-sidebar__title em { font-style: italic; color: var(--dusk); }
-    .bio-sidebar__rule { width: 18px; height: 1px; background: rgba(0,0,0,0.15); margin: 14px 0; }
-    .bio-sidebar__sub { font-size: 7pt; color: var(--dusk); line-height: 2; }
-    .bio-body p { font-size: 8.5pt; color: var(--dusk); line-height: 1.85; margin-bottom: 10px; }
-    .pillar {
-      padding: 12px 0;
+    .p2-headline em { font-style: italic; color: var(--dusk); }
+    .p2-role { font-size: 7pt; color: var(--dusk); line-height: 1.85; }
+    .p2-roles { margin-bottom: 22px; }
+    .p2-bio-text p { font-size: 8pt; color: var(--dusk); line-height: 1.9; margin-bottom: 10px; }
+    .p2-pillars {
+      margin-top: auto;
+      padding-top: 20px;
       border-top: 1px solid var(--line);
-      display: grid;
-      grid-template-columns: 110px 1fr;
-      gap: 14px;
-      margin-top: 4px;
     }
-    .pillar:last-child { border-bottom: 1px solid var(--line); }
-    .pillar__label {
+    .p2-pillar {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 12px;
+    }
+    .p2-pillar__label {
       font-size: 5.5pt;
       font-weight: 500;
       letter-spacing: 0.18em;
@@ -1941,70 +1987,85 @@ export function renderPDFHTML(creator, photoBase64 = null) {
       color: var(--smoke);
       padding-top: 2px;
     }
-    .pillar__text { font-size: 7.5pt; color: var(--dusk); line-height: 1.75; }
+    .p2-pillar__text { font-size: 7pt; color: var(--dusk); line-height: 1.7; }
 
-    /* ── STATS STRIP (dark, page 2 bottom) ── */
-    .stats-strip {
-      background: var(--ink);
-      padding: 32px 48px;
-    }
-    .stats-strip__head {
+    /* Right column */
+    .p2-aud {
+      padding: 52px 48px 52px 36px;
       display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      padding-bottom: 18px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      margin-bottom: 0;
+      flex-direction: column;
+      overflow: hidden;
     }
-    .stats-strip__eyebrow {
-      font-size: 5.5pt;
-      font-weight: 500;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.2);
-    }
-    .stats-strip__title {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 18pt;
-      font-weight: 300;
-      color: var(--white);
-    }
-    .stats-strip__title em { font-style: italic; color: rgba(255,255,255,0.22); }
-    .stats-cells {
-      display: grid;
-      gap: 1px;
-      background: rgba(255,255,255,0.04);
-      margin-top: 1px;
-    }
-    .stat-cell {
-      background: var(--ink);
-      padding: 22px 24px;
-    }
-    .stat-cell__platform {
+    .p2-section { margin-bottom: 18px; }
+    .p2-section-label {
       font-size: 5.5pt;
       font-weight: 500;
       letter-spacing: 0.28em;
       text-transform: uppercase;
-      color: rgba(255,255,255,0.3);
-      margin-bottom: 10px;
+      color: var(--smoke);
+      margin-bottom: 5px;
     }
-    .stat-cell__big {
+    .p2-region {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 30pt;
+      font-size: 26pt;
       font-weight: 300;
-      color: var(--white);
+      color: var(--deep);
       line-height: 1;
+      margin-bottom: 8px;
     }
-    .stat-cell__unit {
-      font-size: 5.5pt;
-      letter-spacing: 0.15em;
+    .p2-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .p2-tag {
+      font-size: 6pt;
+      color: var(--dusk);
+      border: 1px solid var(--smoke);
+      padding: 2px 9px;
+      border-radius: 100px;
+    }
+    .p2-tag--filled {
+      background: rgba(0,0,0,0.06);
+      border: none;
+      padding: 3px 9px;
+    }
+    .p2-age {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 32pt;
+      font-weight: 300;
+      color: var(--deep);
+      line-height: 1;
+      margin-top: 6px;
+    }
+    .p2-age-lbl { font-size: 6.5pt; color: var(--dusk); margin-top: 3px; margin-bottom: 14px; }
+    .p2-note { font-size: 7pt; color: var(--dusk); line-height: 1.8; margin-top: 8px; }
+    .p2-brands-head {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 15pt;
+      font-weight: 300;
+      color: var(--deep);
+      line-height: 1.1;
+      margin: 5px 0 10px;
+    }
+    .p2-brands-head em { font-style: italic; color: var(--dusk); }
+    .p2-brand-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-top: 1px solid var(--line);
+    }
+    .p2-brand-row:last-child { border-bottom: 1px solid var(--line); }
+    .p2-brand-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 10.5pt;
+      font-weight: 300;
+      color: var(--deep);
+    }
+    .p2-brand-cat {
+      font-size: 5pt;
+      font-weight: 500;
+      letter-spacing: 0.2em;
       text-transform: uppercase;
-      color: rgba(255,255,255,0.18);
-      margin-top: 3px;
+      color: var(--smoke);
     }
-    .stat-cell__sep { width: 14px; height: 1px; background: rgba(255,255,255,0.07); margin: 12px 0; }
-    .stat-cell__sub { font-family: 'Cormorant Garamond', serif; font-size: 11pt; font-weight: 300; color: rgba(255,255,255,0.32); line-height: 1; }
-    .stat-cell__sub-lbl { font-size: 5pt; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.13); margin-top: 3px; }
 
     /* ── PAGE 3: AUDIENCE + RATES ── */
     .audience-section {
@@ -2192,103 +2253,76 @@ export function renderPDFHTML(creator, photoBase64 = null) {
 </div>
 
 <!-- ═══════════════════════════════════════
-     PAGE 2 — BIO + STATS
+     PAGE 2 — BIO (left) + AUDIENCE + BRANDS (right)
 ════════════════════════════════════════ -->
 <div class="page">
-  <div class="page-header">
-    <span class="page-header__label">About ${firstName}</span>
-    <span class="page-header__num">02 / 03</span>
-  </div>
+  <div class="p2-grid">
 
-  <div class="bio-layout">
-    <div>
-      <div style="font-size:5.5pt;font-weight:500;letter-spacing:0.3em;text-transform:uppercase;color:var(--smoke);">About</div>
-      <div class="bio-sidebar__title">
-        ${creator.tagline
-          ? esc(creator.tagline).split(',').map((t, i) => i === 0 ? `${t.trim()}.` : `<em>${t.trim()}.</em>`).join('<br>')
-          : `${firstName}.<br><em>${lastName}.</em>`}
+    <!-- ── LEFT: Bio ── -->
+    <div class="p2-bio">
+      <div class="p2-eyebrow">About</div>
+      <div class="p2-headline">${taglineDisplay || `${firstName}<br><em>${lastName}</em>`}</div>
+      <div class="p2-roles">
+        ${roles.map(r => `<div class="p2-role">${esc(r)}</div>`).join('')}
       </div>
-      <div class="bio-sidebar__rule"></div>
-      <div class="bio-sidebar__sub">
-        ${esc(role)}${subtitle ? `<br>${esc(subtitle)}` : ''}
-      </div>
-    </div>
-    <div>
-      <div class="bio-body">
+      <div class="p2-bio-text">
         ${bioParagraphs.map(p => `<p>${esc(p)}</p>`).join('')}
       </div>
       ${bioPillars.length > 0 ? `
-      <div style="margin-top:16px;">
+      <div class="p2-pillars">
         ${bioPillars.map(p => `
-        <div class="pillar">
-          <div class="pillar__label">${esc(p.label)}</div>
-          <div class="pillar__text">${esc(p.text)}</div>
+        <div class="p2-pillar">
+          <div class="p2-pillar__label">${esc(p.label)}</div>
+          <div class="p2-pillar__text">${esc(p.text)}</div>
         </div>`).join('')}
       </div>` : ''}
     </div>
-  </div>
 
-  ${statPlatforms.length > 0 ? `
-  <div class="stats-strip">
-    <div class="stats-strip__head">
-      <span class="stats-strip__eyebrow">Social Footprint</span>
-      <span class="stats-strip__title">Numbers <em>that move brands.</em></span>
+    <!-- ── RIGHT: Audience + Brands ── -->
+    <div class="p2-aud">
+      ${audience ? `
+      <div class="p2-section">
+        <div class="p2-section-label">Primary Region</div>
+        <div class="p2-region">${esc(audience.primaryRegion || 'South Africa')}</div>
+        ${locationTags.length ? `<div class="p2-tags">${locationTags.map(t => `<span class="p2-tag">${esc(t)}</span>`).join('')}</div>` : ''}
+      </div>
+      ${audience.ageGroup ? `
+      <div class="p2-section">
+        <div class="p2-age">${esc(audience.ageGroup)}</div>
+        <div class="p2-age-lbl">${esc(audience.ageLabel || '')}</div>
+      </div>` : ''}
+      ${audience.interests?.length ? `
+      <div class="p2-section">
+        <div class="p2-section-label">Audience Interests</div>
+        <div class="p2-tags">${audience.interests.map(t => `<span class="p2-tag p2-tag--filled">${esc(t)}</span>`).join('')}</div>
+        ${audience.note ? `<div class="p2-note">${esc(audience.note)}</div>` : ''}
+      </div>` : ''}
+      ` : ''}
+      ${brands.length ? `
+      <div class="p2-section">
+        <div class="p2-section-label">Worked With</div>
+        <div class="p2-brands-head">Brands that<br><em>trust the culture.</em></div>
+        ${brands.slice(0, 5).map(b => `
+        <div class="p2-brand-row">
+          <span class="p2-brand-name">${esc(b.brand)}</span>
+          <span class="p2-brand-cat">${esc(b.note || '')}</span>
+        </div>`).join('')}
+      </div>` : ''}
     </div>
-    <div class="stats-cells" style="grid-template-columns:repeat(${statPlatforms.length},1fr);">
-      ${statPlatforms.map(p => `
-      <div class="stat-cell">
-        <div class="stat-cell__platform">${esc(p.name)}</div>
-        <div class="stat-cell__big">${esc(p.big)}</div>
-        <div class="stat-cell__unit">${esc(p.unit)}</div>
-        <div class="stat-cell__sep"></div>
-        <div class="stat-cell__sub">${esc(p.sub)}</div>
-        <div class="stat-cell__sub-lbl">${esc(p.subLbl)}</div>
-      </div>`).join('')}
-    </div>
-  </div>` : ''}
+
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════
-     PAGE 3 — AUDIENCE + BRANDS + RATES
+     PAGE 3 — PACKAGES + RATES
 ════════════════════════════════════════ -->
 <div class="page">
   <div class="page-header">
-    <span class="page-header__label">Audience &amp; Rates</span>
+    <span class="page-header__label">Collaboration</span>
     <span class="page-header__num">03 / 03</span>
   </div>
 
-  ${audience ? `
-  <div class="audience-section">
-    <div class="aud-grid">
-      <div class="aud-col">
-        <div class="aud-label">Primary Region</div>
-        <div class="aud-big">${esc(audience.primaryRegion || 'South Africa')}</div>
-        ${audience.locations?.length ? `<div class="aud-locs">${audience.locations.map(l => `<span class="aud-loc">${esc(l)}</span>`).join('')}</div>` : ''}
-        ${audience.ageGroup ? `
-        <div class="aud-label" style="margin-top:12px;">Core Age Group</div>
-        <div class="aud-age">${esc(audience.ageGroup)}</div>
-        <div class="aud-age-sub">${esc(audience.ageLabel || '')}</div>` : ''}
-      </div>
-      <div class="aud-col">
-        <div class="aud-label">Audience Interests</div>
-        ${audience.interests?.length ? `<div class="aud-tags">${audience.interests.map(t => `<span class="aud-tag">${esc(t)}</span>`).join('')}</div>` : ''}
-        ${audience.note ? `<div class="aud-note">${esc(audience.note)}</div>` : ''}
-      </div>
-    </div>
-  </div>` : ''}
-
   <div class="brands-rates">
-    <div>
-      <div class="section-eyebrow">Worked With</div>
-      <div class="section-heading">Brands that<br><em>trust the culture.</em></div>
-      ${brands.map(b => `
-      <div class="brand-row">
-        ${b.url
-          ? `<a class="brand-name" href="${esc(b.url)}" style="color:inherit;text-decoration:none;border-bottom:1px solid var(--line);">${esc(b.brand)}</a>`
-          : `<span class="brand-name">${esc(b.brand)}</span>`}
-        <span class="brand-type">${esc(b.note || '')}</span>
-      </div>`).join('')}
-    </div>
     <div>
       <div class="section-eyebrow">Collaboration Packages</div>
       <div class="section-heading">What we can<br><em>build together.</em></div>
@@ -2304,19 +2338,21 @@ export function renderPDFHTML(creator, photoBase64 = null) {
         </div>`).join('')}
       </div>` : ''}
     </div>
-  </div>
-
-  ${rates.length > 0 ? `
-  <div class="rates-section">
-    <div class="rates-grid" style="grid-template-columns:repeat(${Math.min(rates.length,4)},1fr);">
-      ${rates.map(r => `
-      <div class="rate-cell">
-        <div class="rate-type">${esc(r.label)}</div>
-        <div class="rate-price">${esc(fmtCurrency(r.amount))}</div>
-        ${r.note ? `<div class="rate-note">${esc(r.note)}</div>` : ''}
-      </div>`).join('')}
+    <div>
+      <div class="section-eyebrow">Content Rates</div>
+      <div class="section-heading">Per asset<br><em>pricing.</em></div>
+      ${rates.length > 0 ? `
+      <div class="pkg-stack">
+        ${rates.map(r => `
+        <div class="pkg">
+          <div>
+            <div class="pkg__name">${esc(r.label)}</div>
+          </div>
+          <div class="pkg__price">${esc(fmtCurrency(r.amount))}</div>
+        </div>`).join('')}
+      </div>` : ''}
     </div>
-  </div>` : ''}
+  </div>
 
   <div class="pdf-footer">
     <div class="pdf-footer__inner">
