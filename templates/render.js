@@ -411,6 +411,23 @@ export function renderRecoverHTML(creator, { flash = null } = {}) {
 // will happily emit any href; we filter `javascript:` and `data:` schemes
 // here, but the broader fence is "do not feed user input into this
 // function". If you ever do, also re-audit escapeHtml against the rest of
+// Parse a URL and return a human-readable platform label for display.
+// Used in brand evidence links — shows "↗ Instagram" instead of a raw URL.
+function platformLabel(url) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '');
+    if (host.includes('instagram.com'))  return 'Instagram';
+    if (host.includes('tiktok.com'))     return 'TikTok';
+    if (host.includes('youtube.com') || host.includes('youtu.be')) return 'YouTube';
+    if (host.includes('twitter.com') || host.includes('x.com'))    return 'X / Twitter';
+    if (host.includes('facebook.com'))   return 'Facebook';
+    if (host.includes('linkedin.com'))   return 'LinkedIn';
+    // Fallback: capitalised root domain (e.g. "bbc.co.uk" → "Bbc")
+    const root = host.split('.').slice(-2)[0] || host;
+    return root.charAt(0).toUpperCase() + root.slice(1);
+  } catch { return 'Link'; }
+}
+
 // the rules; bold/italic/link patterns assume already-escaped text and a
 // trusted author.
 function tinyMarkdown(md) {
@@ -989,19 +1006,27 @@ function headCSS() {
     /* ---- BRAND EVIDENCE ---- */
     .brand-evidence {
       display: none;
-      background: rgba(0,0,0,0.03);
-      padding: 1rem;
-      margin-top: 0.5rem;
-      border-radius: 4px;
+      padding: 0.5rem 0 0.75rem;
     }
-    .brand-evidence.visible { display: block; }
+    .brand-evidence.visible { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
     .evidence-link {
-      display: block;
-      font-size: 0.8rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 0.6rem;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
       color: var(--dusk);
-      margin-bottom: 0.25rem;
-      text-decoration: underline;
+      text-decoration: none;
+      border: 1px solid var(--line);
+      padding: 0.3rem 0.75rem;
+      border-radius: 100px;
+      transition: border-color 0.15s, color 0.15s;
+      white-space: nowrap;
     }
+    .evidence-link:hover { border-color: var(--dusk); color: var(--ink); }
     .brand-row { cursor: pointer; transition: background 0.1s; }
     .brand-row:hover { background: rgba(0,0,0,0.02); }
   `;
@@ -1533,8 +1558,7 @@ ${activePlatforms.length > 0 ? `
           </div>
           ${b.evidence?.length ? `
           <div id="evidence-${i}" class="brand-evidence">
-            <div class="eyebrow-dark" style="margin-bottom:0.5rem;">Evidence links</div>
-            ${b.evidence.map(link => `<a href="${esc(link)}" target="_blank" class="evidence-link">${esc(link)}</a>`).join('')}
+            ${b.evidence.map(link => `<a href="${esc(link)}" target="_blank" rel="noopener" class="evidence-link">↗ ${esc(platformLabel(link))}</a>`).join('')}
           </div>` : ''}`).join('')}
         </div>` : `<p style="margin-top:2rem;font-size:0.84rem;color:var(--dusk);">Add brand collaborations when editing your card.</p>`}
       </div>
