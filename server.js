@@ -1,5 +1,5 @@
 // CreatorHQ — Rate Card Generator
-// Express. JSON-per-creator. PDF generation is client-side via html2pdf.js.
+// Express. JSON-per-creator. PDF generation: html2canvas + jsPDF on fixed A4 divs (see renderPDFHTML).
 
 import express from 'express';
 import multer from 'multer';
@@ -9,11 +9,16 @@ import { fileURLToPath } from 'url';
 import cookieParser from 'cookie-parser';
 import { authenticate, signSession, AUTH_COOKIE_OPTS } from './lib/auth.mjs';
 import { sendOTP, isValidPhone } from './lib/whatsapp.mjs';
-import { renderCardHTML, renderRateCardHTML, renderFormHTML, renderLandingHTML, renderCalculatorHTML, renderNotFoundHTML } from './templates/render.js';
+import { renderCardHTML, renderRateCardHTML, renderPDFHTML, renderFormHTML, renderLandingHTML, renderCalculatorHTML, renderNotFoundHTML, renderAboutHTML, renderNotYoursHTML, renderRecoverHTML, renderPrivacyHTML, renderTermsHTML, renderCreateErrorHTML } from './templates/render.js';
 import { calculateRate, calculateOverall } from './scripts/calculator.js';
 import { supabaseAdmin } from './lib/supabase.mjs';
 import { uploadCreatorPhoto } from './lib/photoStorage.mjs';
-import { readFileSync, existsSync, writeFileSync, readdirSync, mkdirSync } from 'fs';
+import {
+  buildOwnershipBlock, setOwnerCookie, readOwnerCookie, clearOwnerCookie,
+  verifyOwnership, verifyRecoveryCredentials,
+  detectContactType, normaliseDob
+} from './lib/ownership.mjs';
+import { readFileSync, existsSync, writeFileSync, readdirSync, mkdirSync, renameSync, unlinkSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -104,7 +109,20 @@ function saveCreatorToDisk(creator) {
   }
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
   const file = path.join(DATA_DIR, `${creator.id}.json`);
-  writeFileSync(file, JSON.stringify(creator, null, 2), 'utf8');
+  // Atomic write: serialise to a sibling tmp file and rename into place.
+  // A mid-write crash leaves the *previous* JSON intact instead of a
+  // truncated one that throws on next JSON.parse and 404s the owner off
+  // their own kit. rename() is atomic on POSIX (same filesystem); the tmp
+  // path lives in DATA_DIR specifically so the rename never crosses
+  // mounts (e.g. when DATA_DIR is on a Railway persistent volume).
+  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
+  try {
+    writeFileSync(tmp, JSON.stringify(creator, null, 2), 'utf8');
+    renameSync(tmp, file);
+  } catch (err) {
+    try { unlinkSync(tmp); } catch { /* tmp may not exist; ignore */ }
+    throw err;
+  }
   return creator;
 }
 
@@ -353,35 +371,108 @@ app.get('/calculator', (_req, res) => {
   res.type('html').send(renderCalculatorHTML());
 });
 
-// Create a new creator record
+// About page — short editorial page explaining what CreatorHQ is + who built it.
+// Linked from the band's persistent nav.
+app.get('/about', (_req, res) => {
+  res.type('html').send(renderAboutHTML());
+});
+
+// Create a new creator record.
+//
+// Now also collects soft-signin (recovery_contact + recovery_dob), runs
+// honeypot + min-fill-time bot checks, hashes credentials, writes the
+// ownership block, and sets the owner cookie on the creator's browser.
 app.post('/create', upload.single('photo'), async (req, res) => {
   try {
     const body = req.body;
 
+    // ── Bot guards ───────────────────────────────────────────────────────
+    // Honeypot: a hidden field bots happily fill. Humans never see it.
+    if (body.hp_check && String(body.hp_check).trim() !== '') {
+      console.warn('[create] honeypot tripped, dropping silently');
+      return res.redirect('/new');
+    }
+    // Min-fill-time: form_rendered_at is a timestamp the form sets at render.
+    // Submissions <3s after render are almost certainly bots.
+    const renderedAt = parseInt(body.form_rendered_at, 10);
+    if (Number.isFinite(renderedAt)) {
+      const elapsedMs = Date.now() - renderedAt;
+      if (elapsedMs < 3000) {
+        console.warn(`[create] min-fill-time tripped (${elapsedMs}ms), dropping silently`);
+        return res.redirect('/new');
+      }
+    }
+
+    // ── Soft sign-in validation ──────────────────────────────────────────
+    // Recovery contact (email or SA phone). Reject if missing or unrecognised.
+    const recoveryContact = String(body.recovery_contact || '').trim();
+    const contactType = detectContactType(recoveryContact);
+    if (!recoveryContact || !contactType) {
+      return res.status(400).type('html').send(renderCreateErrorHTML({
+        status: 400,
+        message: 'A recovery contact is required. Use a valid email (you@example.com) or SA cell number (0821234567 or +27821234567). This is how you recover edit access on a new device.'
+      }));
+    }
+
+    // DOB: accept either YYYY-MM-DD (single date input) OR three split fields
+    // (recovery_dob_d / recovery_dob_m / recovery_dob_y). Mongezi's call: split
+    // fields with inputmode=numeric so Android pulls up the numeric keypad
+    // instead of the date wheel that defaults to the current decade.
+    let rawDob = String(body.recovery_dob || '').trim();
+    if (!rawDob && body.recovery_dob_y) {
+      const d = String(body.recovery_dob_d || '').trim().padStart(2, '0');
+      const m = String(body.recovery_dob_m || '').trim().padStart(2, '0');
+      const y = String(body.recovery_dob_y || '').trim();
+      rawDob = `${y}-${m}-${d}`;
+    }
+    const normalisedDob = normaliseDob(rawDob);
+    if (!normalisedDob) {
+      return res.status(400).type('html').send(renderCreateErrorHTML({
+        status: 400,
+        message: 'A date of birth is required. Enter day, month and year as separate numbers (DD / MM / YYYY).'
+      }));
+    }
+    // Sanity: not in the future, not before 1900.
+    const dobYear = parseInt(normalisedDob.split('-')[0], 10);
+    const thisYear = new Date().getFullYear();
+    if (dobYear < 1900 || dobYear > thisYear) {
+      return res.status(400).type('html').send(renderCreateErrorHTML({
+        status: 400,
+        message: 'That date of birth looks off. The year should be between 1900 and the current year. Try again.'
+      }));
+    }
+
+    // ── Build the kit record ─────────────────────────────────────────────
     const baseData = extractCreatorData(body);
     const id = nanoid(8);
 
-    // Upload photo buffer straight to Supabase Storage — keyed on the new id.
     let photo = null;
     if (req.file) {
       const publicUrl = await uploadCreatorPhoto(id, req.file.buffer, req.file.mimetype);
       photo = {
         url: publicUrl,
-        // Spec enforced by the template; recorded here for downstream media kit gen.
         slotSpec: { width: 365, height: 1123 },
       };
     }
+
+    // Build the ownership block (hashes contact + DOB with a per-record salt).
+    const ownership = buildOwnershipBlock({ contact: recoveryContact, dob: normalisedDob });
 
     const creator = {
       id,
       createdAt: new Date().toISOString(),
       ...baseData,
       photo,
+      ownership,
     };
 
     await saveCreator(creator);
-    // Pass ?created=1 so the kit page can show a "your kit is live, share it" banner
-    // on first view. The banner is suppressed on subsequent visits / shares.
+
+    // Set the owner cookie so the creator's own browser is recognised on
+    // subsequent visits. Cookie is httpOnly, sameSite=lax, scoped to /c/<id>.
+    setOwnerCookie(res, creator.id, ownership.owner_token);
+
+    // Pass ?created=1 so the kit page shows the post-create banner.
     const mode = req.body.mode === 'rate-card' ? 'rate-card' : 'kit';
     const target = mode === 'rate-card'
       ? `/c/${creator.id}/rate-card?created=1`
@@ -389,15 +480,26 @@ app.post('/create', upload.single('photo'), async (req, res) => {
     res.redirect(target);
   } catch (err) {
     console.error('create failed', err);
-    res.status(500).type('text/plain').send(`Create failed: ${err.message}`);
+    res.status(500).type('html').send(renderCreateErrorHTML({
+      status: 500,
+      message: 'We could not save your kit. The error has been logged. Refresh the form and try again; if it keeps failing, email mongezi@simulacra.studio.'
+    }));
   }
 });
 
-// Edit an existing creator record — supports ?rate-card=1 mode switch
+// Edit an existing creator record — supports ?rate-card=1 mode switch.
+// Owner-gated: non-owners hitting /c/:id/edit get the conversion-friendly
+// NotYours page rather than the form. Owners (cookie matches stored token)
+// see the form prefilled with their data.
 app.get('/c/:id/edit', async (req, res) => {
   try {
     const creator = await loadCreator(req.params.id);
     if (!creator) return res.status(404).type('html').send(renderNotFoundHTML({ what: 'creator' }));
+    if (!verifyOwnership(req, creator)) {
+      return res.status(403).type('html').send(renderNotYoursHTML(creator));
+    }
+    // Refresh the cookie's 30-day expiry on owner activity.
+    setOwnerCookie(res, creator.id, creator.ownership.owner_token);
     const mode = req.query['rate-card'] ? 'rate-card' : 'kit';
     res.type('html').send(renderFormHTML(creator, { mode }));
   } catch (err) {
@@ -406,11 +508,14 @@ app.get('/c/:id/edit', async (req, res) => {
   }
 });
 
-// Update an existing creator record
+// Update an existing creator record. Owner-gated: 403 JSON for non-owners.
 app.post('/c/:id/update', upload.single('photo'), async (req, res) => {
   try {
     const existing = await loadCreator(req.params.id);
     if (!existing) return res.status(404).type('html').send(renderNotFoundHTML({ what: 'creator' }));
+    if (!verifyOwnership(req, existing)) {
+      return res.status(403).json({ error: 'Not authorised to update this kit.' });
+    }
 
     const body = req.body;
 
@@ -427,13 +532,21 @@ app.post('/c/:id/update', upload.single('photo'), async (req, res) => {
       };
     }
 
+    // Defensive: extractCreatorData doesn't currently return an `ownership`
+    // key, so `...baseData` doesn't clobber `existing.ownership`. But a
+    // future refactor that adds `ownership: undefined` to the extractor
+    // output would silently wipe the block and lock the owner out. Pin the
+    // preserve explicitly after the spread so the contract is visible.
     const creator = {
-      ...existing, // preserve createdAt, id
+      ...existing, // createdAt, id (and ownership pre-pin)
       ...baseData,
       photo,
+      ownership: existing.ownership,
     };
 
     await saveCreator(creator);
+    // Refresh owner cookie on successful update.
+    setOwnerCookie(res, creator.id, existing.ownership.owner_token);
     // Mode-aware redirect to the saved-state banner: kit by default, rate-card
     // when the form was opened with ?rate-card=1.
     const wasRateCard = req.query['rate-card'] === '1' || req.body.mode === 'rate-card';
@@ -447,14 +560,18 @@ app.post('/c/:id/update', upload.single('photo'), async (req, res) => {
   }
 });
 
-// Live shareable media kit
+// Live shareable media kit. isOwner detected via cookie + creator.ownership.
+// ?as=visitor on owner viewing forces the public render (preview-as-visitor).
 app.get('/c/:id', async (req, res) => {
   try {
     const creator = await loadCreator(req.params.id);
     if (!creator) return res.status(404).type('html').send(renderNotFoundHTML({ what: 'creator' }));
     const justCreated = req.query.created === '1';
     const justSaved = req.query.saved === '1';
-    res.type('html').send(renderCardHTML(creator, { forPDF: false, justCreated, justSaved }));
+    const previewAsVisitor = req.query.as === 'visitor';
+    const isOwner = !previewAsVisitor && verifyOwnership(req, creator);
+    if (isOwner) setOwnerCookie(res, creator.id, creator.ownership.owner_token);
+    res.type('html').send(renderCardHTML(creator, { forPDF: false, justCreated, justSaved, isOwner }));
   } catch (err) {
     console.error('GET /c/:id failed:', err.message);
     res.status(500).type('text/plain').send(`Render failed: ${err.message}`);
@@ -467,17 +584,185 @@ app.get('/c/:id/rate-card', async (req, res) => {
     if (!creator) return res.status(404).type('html').send(renderNotFoundHTML({ what: 'creator' }));
     const justCreated = req.query.created === '1';
     const justSaved = req.query.saved === '1';
-    res.type('html').send(renderRateCardHTML(creator, { justCreated, justSaved }));
+    const previewAsVisitor = req.query.as === 'visitor';
+    const isOwner = !previewAsVisitor && verifyOwnership(req, creator);
+    if (isOwner) setOwnerCookie(res, creator.id, creator.ownership.owner_token);
+    res.type('html').send(renderRateCardHTML(creator, { justCreated, justSaved, isOwner }));
   } catch (err) {
     console.error('GET /c/:id/rate-card failed:', err.message);
     res.status(500).type('text/plain').send(`Render failed: ${err.message}`);
   }
 });
 
-// PDF generation is now entirely client-side via html2pdf.js (see templates/render.js).
-// The legacy `GET /c/:id/pdf` route + Puppeteer pipeline were removed 2026-04-17 to
-// simplify deploys (no Chrome binary, no postinstall, no cache dir). renderPDFHTML
-// is still exported for anyone who wants a raw A4-shaped HTML for printing.
+// Recovery — soft sign-in style. Visitor enters the same contact + DOB they
+// used at create time; we hash and compare. On match, we (re)set the owner
+// cookie and bounce them to the kit. On miss, we render the form again with
+// a flash + bump the rate-limit cookie. Five attempts per kit per hour.
+const RECOVERY_RATE_LIMIT = 5;
+const RECOVERY_RATE_WINDOW_MS = 60 * 60 * 1000; // 1h
+
+function readRecoveryAttempts(req, id) {
+  const raw = req.cookies?.[`chq_recover_${id}`];
+  if (!raw) return { count: 0, firstAt: 0 };
+  try {
+    const decoded = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
+    if (!decoded || typeof decoded.count !== 'number' || typeof decoded.firstAt !== 'number') {
+      return { count: 0, firstAt: 0 };
+    }
+    // Window expired → reset.
+    if (Date.now() - decoded.firstAt > RECOVERY_RATE_WINDOW_MS) return { count: 0, firstAt: 0 };
+    return decoded;
+  } catch {
+    return { count: 0, firstAt: 0 };
+  }
+}
+
+function writeRecoveryAttempts(res, id, payload) {
+  const value = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  res.cookie(`chq_recover_${id}`, value, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: RECOVERY_RATE_WINDOW_MS,
+    path: `/c/${id}/recover`,
+  });
+}
+
+app.get('/c/:id/recover', async (req, res) => {
+  try {
+    const creator = await loadCreator(req.params.id);
+    if (!creator) return res.status(404).type('html').send(renderNotFoundHTML({ what: 'creator' }));
+    // Already owner → don't make them re-prove. Bounce to the kit.
+    if (verifyOwnership(req, creator)) {
+      return res.redirect(`/c/${creator.id}`);
+    }
+    // No ownership block recorded (e.g. legacy kits) → recovery is impossible;
+    // surface NotYours which links to /new instead.
+    if (!creator.ownership) {
+      return res.status(403).type('html').send(renderNotYoursHTML(creator));
+    }
+    res.type('html').send(renderRecoverHTML(creator, { flash: req.query.err || null }));
+  } catch (err) {
+    console.error('GET /c/:id/recover failed:', err.message);
+    res.status(500).type('text/plain').send(`Recover failed: ${err.message}`);
+  }
+});
+
+app.post('/c/:id/recover', async (req, res) => {
+  try {
+    const creator = await loadCreator(req.params.id);
+    if (!creator) return res.status(404).type('html').send(renderNotFoundHTML({ what: 'creator' }));
+    if (!creator.ownership) {
+      return res.status(403).type('html').send(renderNotYoursHTML(creator));
+    }
+
+    // Rate-limit before doing any hashing. Cookie-based; not bulletproof
+    // against a determined attacker who clears cookies, but raises the cost
+    // and matches the v1 honeypot-only posture.
+    const attempts = readRecoveryAttempts(req, creator.id);
+    if (attempts.count >= RECOVERY_RATE_LIMIT) {
+      return res.status(429).type('html').send(renderRecoverHTML(creator, { flash: 'rate_limited' }));
+    }
+
+    // Accept either combined recovery_dob (YYYY-MM-DD) or split d/m/y fields.
+    const body = req.body || {};
+    const contact = String(body.recovery_contact || '').trim();
+    let dob = String(body.recovery_dob || '').trim();
+    if (!dob && body.recovery_dob_d && body.recovery_dob_m && body.recovery_dob_y) {
+      const d = String(body.recovery_dob_d).padStart(2, '0');
+      const m = String(body.recovery_dob_m).padStart(2, '0');
+      const y = String(body.recovery_dob_y);
+      dob = `${y}-${m}-${d}`;
+    }
+
+    const ok = verifyRecoveryCredentials(creator, contact, dob);
+
+    if (!ok) {
+      const next = {
+        count: attempts.count + 1,
+        firstAt: attempts.firstAt || Date.now(),
+      };
+      writeRecoveryAttempts(res, creator.id, next);
+      return res.status(401).type('html').send(renderRecoverHTML(creator, { flash: 'mismatch' }));
+    }
+
+    // Match. Set the owner cookie, clear the attempt counter, bounce to kit.
+    setOwnerCookie(res, creator.id, creator.ownership.owner_token);
+    res.clearCookie(`chq_recover_${creator.id}`, { path: `/c/${creator.id}/recover` });
+    res.redirect(`/c/${creator.id}`);
+  } catch (err) {
+    console.error('POST /c/:id/recover failed:', err.message);
+    res.status(500).type('text/plain').send(`Recover failed: ${err.message}`);
+  }
+});
+
+// Sign out — owner clicks "Stop editing on this device" from the owner
+// banner. Clears the per-kit cookie and redirects to the public view.
+app.post('/c/:id/signout', async (req, res) => {
+  const id = req.params.id;
+  clearOwnerCookie(res, id);
+  res.redirect(`/c/${id}`);
+});
+
+// Privacy + Terms — markdown sources in data/, rendered through tinyMarkdown
+// in render.js. Loaded once at boot and cached; restart to refresh.
+const PRIVACY_MD = (() => {
+  try { return readFileSync(path.join(DATA_DIR, 'privacy.md'), 'utf8'); }
+  catch { return '# Privacy\n\nDocument missing — contact mongezi@simulacra.studio.'; }
+})();
+const TERMS_MD = (() => {
+  try { return readFileSync(path.join(DATA_DIR, 'terms.md'), 'utf8'); }
+  catch { return '# Terms\n\nDocument missing — contact mongezi@simulacra.studio.'; }
+})();
+
+app.get('/privacy', (req, res) => {
+  res.type('html').send(renderPrivacyHTML(PRIVACY_MD));
+});
+
+app.get('/terms', (req, res) => {
+  res.type('html').send(renderTermsHTML(TERMS_MD));
+});
+
+// GET /c/:id/pdf — Serves the fixed A4 PDF layout (renderPDFHTML).
+// The page auto-triggers html2canvas + jsPDF on load and saves the PDF.
+// Photo is fetched server-side and embedded as base64 to avoid CORS.
+app.get('/c/:id/pdf', async (req, res) => {
+  try {
+    const creator = await loadCreator(req.params.id);
+    if (!creator) return res.status(404).type('html').send(renderNotFoundHTML({ what: 'creator' }));
+
+    // Embed photo as base64 so html2canvas has no CORS friction
+    let photoBase64 = null;
+    const photoUrl = creator.photo?.url;
+    if (photoUrl) {
+      try {
+        if (photoUrl.startsWith('/uploads/')) {
+          // Local disk file — read directly (readFileSync already imported at top)
+          const localPath = path.join(path.dirname(fileURLToPath(import.meta.url)), photoUrl);
+          const buf = readFileSync(localPath);
+          const mime = photoUrl.endsWith('.png') ? 'image/png' : photoUrl.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
+          photoBase64 = `data:${mime};base64,${buf.toString('base64')}`;
+        } else if (photoUrl.startsWith('http')) {
+          // Remote URL (Supabase CDN) — fetch and convert
+          const resp = await fetch(photoUrl, { signal: AbortSignal.timeout(5000) });
+          if (resp.ok) {
+            const buf = Buffer.from(await resp.arrayBuffer());
+            const ct = resp.headers.get('content-type') || 'image/jpeg';
+            photoBase64 = `data:${ct};base64,${buf.toString('base64')}`;
+          }
+        }
+      } catch (photoErr) {
+        // Non-fatal — render without photo rather than failing the whole page
+        console.warn(`[GET /c/:id/pdf] Photo fetch failed (${photoErr.message?.slice(0,80)}). Continuing without.`);
+      }
+    }
+
+    res.type('html').send(renderPDFHTML(creator, photoBase64));
+  } catch (err) {
+    console.error('GET /c/:id/pdf failed:', err.message);
+    res.status(500).type('text/plain').send(`PDF render failed: ${err.message}`);
+  }
+});
 
 // Rate calculator endpoint — per-asset (used by inline form widget, deprecated).
 app.post('/api/calculate', (req, res) => {

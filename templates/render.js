@@ -1172,7 +1172,6 @@ export function renderCardHTML(creator, { forPDF = false, justCreated = false, j
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <meta name="theme-color" content="#0a0a0a">
   <style>${localFonts()}</style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     :root {
       --paper: #f0ece4;
@@ -1678,10 +1677,10 @@ ${audience ? `
     Rate Card →
   </a>
   <div class="bar-divider"></div>
-  <button id="pdf-btn" onclick="downloadKitPDF()" style="display:flex;align-items:center;gap:0.45rem;color:rgba(255,255,255,0.7);font-family:'Instrument Sans',sans-serif;font-size:0.7rem;font-weight:400;letter-spacing:0.06em;padding:0.3rem 0.6rem;border-radius:100px;white-space:nowrap;transition:color 0.15s;background:none;border:none;cursor:pointer;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">
+  <a href="/c/${esc(creator.id)}/pdf" target="_blank" rel="noopener" id="pdf-btn" style="display:flex;align-items:center;gap:0.45rem;color:rgba(255,255,255,0.7);font-family:'Instrument Sans',sans-serif;font-size:0.7rem;font-weight:400;letter-spacing:0.06em;text-decoration:none;padding:0.3rem 0.6rem;border-radius:100px;white-space:nowrap;transition:color 0.15s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     <span>Download PDF</span>
-  </button>
+  </a>
 </div>
 
 ${renderNudge(creator)}
@@ -1709,19 +1708,8 @@ ${renderNudge(creator)}
     });
   }
 
-  // PDF is client-side via html2pdf — captures the whole scrollable page as a multi-page A4.
-  function downloadKitPDF() {
-    const bar = document.getElementById('action-bar');
-    bar.style.display = 'none';
-    html2pdf().set({
-      margin: 0,
-      filename: '${firstName}-${lastName}-MediaKit.pdf',
-      image: { type: 'jpeg', quality: 0.95 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#f0ece4' },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
-      pagebreak: { mode: ['css', 'legacy'] }
-    }).from(document.body).save().then(() => { bar.style.display = 'flex'; });
-  }
+  // PDF: opens /c/${esc(creator.id)}/pdf in a new tab.
+  // That route serves renderPDFHTML which auto-triggers html2canvas + jsPDF on load.
 </script>
 </body>
 </html>`;
@@ -2348,6 +2336,41 @@ export function renderPDFHTML(creator, photoBase64 = null) {
   </div>
 </div>
 
+<!-- Auto-download: html2canvas + jsPDF capture each .page div and assemble as multi-page PDF.
+     Per doctrine: fixed A4 divs captured individually, NOT html2pdf().from(body). -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+(async function generatePDF() {
+  // Wait for fonts before capture
+  await document.fonts.ready;
+
+  const { jsPDF } = window.jspdf;
+  const pages = document.querySelectorAll('.page');
+  if (!pages.length) return;
+
+  const W = 794, H = 1123;
+  const pdf = new jsPDF({ unit: 'px', format: [W, H], orientation: 'portrait', compress: true });
+
+  for (let i = 0; i < pages.length; i++) {
+    const canvas = await html2canvas(pages[i], {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      width: W,
+      height: H,
+      windowWidth: W,
+      backgroundColor: '#f0ece4',
+    });
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    if (i > 0) pdf.addPage([W, H], 'portrait');
+    pdf.addImage(imgData, 'JPEG', 0, 0, W, H);
+  }
+
+  const slug = '${(firstName + (lastName ? '-' + lastName : '')).replace(/[^A-Za-z0-9]/g, '-').replace(/-+/g, '-')}';
+  pdf.save(slug + '-MediaKit.pdf');
+})();
+</script>
 </body>
 </html>`;
 }
