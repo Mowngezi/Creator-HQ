@@ -2918,8 +2918,6 @@ ${(justSaved && !justCreated) ? renderSavedBanner() : ''}
   <button id="rc-dl-btn" onclick="downloadRateCardPDF()">Download PDF</button>
 </div>
 
-${renderNudge(creator)}
-
 <script>
 // Per the export skill: capture the fixed A4 div directly with html2canvas
 // + jsPDF. Do NOT use html2pdf().from(document.body) — that slices the full
@@ -4090,9 +4088,9 @@ export function renderFormHTML(creator = null, opts = {}) {
 }
 
 function renderNudge(creator) {
-  // Logic: Only show if the profile is not yet linked to an owner (draft) 
-  // and we are NOT in the middle of a signup flow.
-  if (creator.owner_id) return '';
+  // Only show for profiles that have no ownership block yet (true drafts).
+  // creator.ownership is set when the creator has locked the link to an account.
+  if (creator.ownership?.owner_token || creator.owner_id) return '';
 
   return `
     <div class="nudge">
