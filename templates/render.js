@@ -3,7 +3,7 @@
 // Design system (locked — Khanyisile media kit reference):
 //   Typography: Cormorant Garamond (display/names), Instrument Sans (UI/body)
 //   Palette:    --paper #f0ece4, --sand #e6e0d8, --ink #0a0a0a, --white #f8f5f0
-//   Layout:     Scrollable web sections — NOT A4 boxes. PDF via html2pdf.js (client-side)
+//   Layout:     Scrollable web sections — NOT A4 boxes. PDF via html2canvas on fixed 794x1123 div (never html2pdf on body)
 //   Rhythm:     Cover (dark) → Bio (light) → Stats (dark) → Audience (sand) → Brands+Rates (light) → Footer (dark)
 
 const esc = (s) =>
@@ -19,7 +19,7 @@ const fmtNum = (n) => {
   const num = Number(n);
   if (num >= 1000000) return (num / 1000000).toFixed(num % 1000000 === 0 ? 0 : 1) + 'M';
   if (num >= 1000) return (num / 1000).toFixed(num % 1000 === 0 ? 0 : 1) + 'K';
-  return num.toLocaleString('en-ZB');
+  return num.toLocaleString('en-ZA');
 };
 
 const fmtCurrency = (n) => {
@@ -38,61 +38,60 @@ const fmtCurrency = (n) => {
 //   renderSiteHeader({ current: 'kit', back: { href: '/', label: 'Home' }, theme: 'on-dark' })
 //
 // theme: 'on-light' (default) or 'on-dark' for use over the dark cover.
-// renderSiteHeader: matches the ORIGINAL `.nav` aesthetic from the landing
-// (commit 2d11d0d) — small, letter-spaced Instrument Sans wordmark, no
-// background, hairline bottom rule. Extended with the nav buttons we
-// actually need (Home, contextual back). Theme-aware so it reads correctly
-// over the dark cover (kit page) AND on the paper-coloured form / 404.
+// renderSiteHeader: opaque black band on EVERY page. Same identity, same
+// typography, same affordances. Drops the prior theme switcher because Mongezi
+// said: "Maintain black band on all pages." Brand consistency over visual
+// blending. Logo in tiny letter-spaced Instrument Sans, paper-coloured.
+//
+// Right side carries global navigation (About + Get Started). Auto-suppresses
+// the link to the page you're already on. Contextual back-links (Cancel,
+// Back to my kit) live in each PAGE's body, not in the band.
 //
 // Usage:
 //   renderSiteHeader({ current: 'landing' })
-//   renderSiteHeader({ current: 'form', back: { href: '/', label: 'Cancel' } })
-//   renderSiteHeader({ current: 'kit', back: { href: '/', label: 'Home' }, theme: 'on-dark' })
-function renderSiteHeader({ current = '', back = null, theme = 'on-light' } = {}) {
-  const onDark = theme === 'on-dark';
-  const fg = onDark ? 'rgba(255,255,255,0.4)' : 'rgba(10,10,10,0.55)';
-  const fgHover = onDark ? 'rgba(255,255,255,0.85)' : '#0a0a0a';
-  const border = onDark ? 'rgba(255,255,255,0.05)' : 'rgba(10,10,10,0.06)';
+//   renderSiteHeader({ current: 'kit' })
+//   renderSiteHeader({ current: 'form' })
+function renderSiteHeader({ current = '' } = {}) {
   return `
   <style>
     .chq-nav {
-      position: relative; z-index: 1;
-      padding: 2.5rem 4rem;
+      position: relative; z-index: 5;
+      padding: 1.6rem 4rem;
       display: flex; align-items: center; justify-content: space-between;
-      border-bottom: 1px solid ${border};
-      background: transparent;
+      background: #0a0a0a;
+      border-bottom: 1px solid rgba(248,245,240,0.06);
     }
     .chq-nav__logo {
       font-family: 'Instrument Sans', sans-serif;
       font-size: 0.65rem; font-weight: 500;
       letter-spacing: 0.35em; text-transform: uppercase;
-      color: ${fg};
+      color: rgba(248,245,240,0.55);
       text-decoration: none;
       transition: color 0.15s;
     }
-    .chq-nav__logo:hover { color: ${fgHover}; }
+    .chq-nav__logo:hover { color: rgba(248,245,240,0.95); }
     .chq-nav__items {
-      display: flex; align-items: center; gap: 1.75rem;
+      display: flex; align-items: center; gap: 2rem;
       font-family: 'Instrument Sans', sans-serif;
     }
     .chq-nav__items a {
       font-size: 0.6rem; font-weight: 500;
       letter-spacing: 0.22em; text-transform: uppercase;
-      color: ${fg}; text-decoration: none;
+      color: rgba(248,245,240,0.55); text-decoration: none;
       transition: color 0.15s;
     }
-    .chq-nav__items a:hover { color: ${fgHover}; }
+    .chq-nav__items a:hover { color: rgba(248,245,240,0.95); }
     @media (max-width: 720px) {
-      .chq-nav { padding: 1.5rem; }
-      .chq-nav__items { gap: 1.1rem; }
-      .chq-nav__items a { font-size: 0.55rem; letter-spacing: 0.18em; }
+      .chq-nav { padding: 1.1rem 1.25rem; }
+      .chq-nav__items { gap: 1.2rem; }
+      .chq-nav__items a { font-size: 0.55rem; letter-spacing: 0.18em; padding: 0.75rem 0; display: inline-block; }
     }
   </style>
   <nav class="chq-nav">
     <a href="/" class="chq-nav__logo" aria-label="CreatorHQ home">CreatorHQ</a>
     <div class="chq-nav__items">
-      ${current !== 'landing' ? `<a href="/">Home</a>` : ''}
-      ${back ? `<a href="${esc(back.href)}">← ${esc(back.label)}</a>` : ''}
+      ${current !== 'about' ? `<a href="/about">About</a>` : ''}
+      ${current !== 'form' ? `<a href="/new">Get Started</a>` : ''}
     </div>
   </nav>`;
 }
@@ -143,13 +142,13 @@ export function renderNotFoundHTML({ what = 'page' } = {}) {
   <style>
     ${localFonts()}
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Instrument Sans', system-ui, sans-serif; background: #fafafa; color: #0a0a0a; min-height: 100vh; display: flex; flex-direction: column; }
+    body { font-family: 'Instrument Sans', system-ui, sans-serif; background: #0a0a0a; color: #f8f5f0; min-height: 100vh; display: flex; flex-direction: column; }
     main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 1.5rem; text-align: center; }
-    h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 4rem; font-weight: 300; line-height: 1; margin-bottom: 1rem; letter-spacing: -0.02em; }
-    h1 em { font-style: italic; color: rgba(10,10,10,0.55); }
-    p { font-size: 1rem; color: rgba(10,10,10,0.6); margin-bottom: 2rem; max-width: 32rem; }
-    a.cta { display: inline-block; background: #0a0a0a; color: #fff; text-decoration: none; padding: 0.85rem 1.5rem; border-radius: 100px; font-size: 0.85rem; letter-spacing: 0.04em; }
-    a.cta:hover { background: #1a1a1a; }
+    h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: clamp(3rem, 8vw, 5rem); font-weight: 300; line-height: 1; margin-bottom: 1.25rem; letter-spacing: -0.02em; color: #f8f5f0; }
+    h1 em { font-style: italic; color: rgba(248,245,240,0.4); }
+    p { font-size: 1rem; color: rgba(248,245,240,0.5); margin-bottom: 2.5rem; max-width: 32rem; line-height: 1.7; }
+    a.back { display: inline-flex; align-items: center; gap: 0.4rem; color: #f8f5f0; text-decoration: none; font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; border-bottom: 1px solid rgba(248,245,240,0.4); padding-bottom: 4px; transition: border-color 0.2s; }
+    a.back:hover { border-color: #f8f5f0; }
   </style>
 </head>
 <body>
@@ -157,10 +156,364 @@ export function renderNotFoundHTML({ what = 'page' } = {}) {
   <main>
     <h1>Not <em>here.</em></h1>
     <p>The ${esc(what)} you tried to open does not exist or has been moved. The kit owner may have deleted it, or the link was mistyped.</p>
-    <a href="/" class="cta">Back to CreatorHQ</a>
+    <a href="/" class="back">Back to CreatorHQ →</a>
   </main>
 </body>
 </html>`;
+}
+
+// Branded error page for /create failures (validation 400s + the catch-all
+// 500). Replaces a previous text/plain dead-end. The "Back to /new" link
+// returns the user to the form so they can fix and resubmit. The form does
+// not currently round-trip values; that is a v1 acceptable trade-off.
+export function renderCreateErrorHTML({ message = 'We could not create your kit.', status = 400 } = {}) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CreatorHQ · ${status === 500 ? 'Something broke' : 'Check your details'}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <meta name="theme-color" content="#0a0a0a">
+  <style>
+    ${localFonts()}
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Instrument Sans', system-ui, sans-serif; background: #0a0a0a; color: #f8f5f0; min-height: 100vh; display: flex; flex-direction: column; }
+    main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 1.5rem; text-align: center; }
+    .eyebrow { font-size: 0.62rem; font-weight: 500; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(248,245,240,0.35); margin-bottom: 1.25rem; }
+    h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: clamp(2.4rem, 6vw, 3.6rem); font-weight: 300; line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 1.5rem; max-width: 16ch; }
+    h1 em { font-style: italic; color: rgba(248,245,240,0.5); }
+    p { font-size: 1rem; color: rgba(248,245,240,0.65); line-height: 1.75; margin-bottom: 2.5rem; max-width: 38rem; }
+    a.back { display: inline-flex; align-items: center; gap: 0.5rem; color: #f8f5f0; text-decoration: none; font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; border-bottom: 1px solid rgba(248,245,240,0.4); padding-bottom: 4px; transition: border-color 0.2s; }
+    a.back:hover { border-color: #f8f5f0; }
+  </style>
+</head>
+<body>
+  ${renderSiteHeader({ current: 'error' })}
+  <main>
+    <div class="eyebrow">${status === 500 ? '500 · Something broke' : '400 · Check your details'}</div>
+    <h1>${status === 500 ? `Something <em>broke.</em>` : `One <em>thing</em> off.`}</h1>
+    <p>${esc(message)}</p>
+    <a href="/new" class="back">Back to the form →</a>
+  </main>
+</body>
+</html>`;
+}
+
+// About page. Editorial register, ~150 words, three short paragraphs.
+// Mongezi-credited. Single text-link CTA at bottom in same treatment as 404.
+export function renderAboutHTML() {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CreatorHQ · About</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  ${ogMeta({
+    title: 'CreatorHQ · About',
+    description: 'A media kit and rate card generator for African creators. Built in Johannesburg by Mongezi Xhoma. No signup, no recurring fee.',
+    image: absoluteUrl('/og-default.png'),
+    url: absoluteUrl('/about'),
+    type: 'website'
+  })}
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <meta name="theme-color" content="#0a0a0a">
+  <style>
+    ${localFonts()}
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Instrument Sans', system-ui, sans-serif; background: #0a0a0a; color: #f8f5f0; min-height: 100vh; display: flex; flex-direction: column; }
+    main { flex: 1; max-width: 640px; margin: 0 auto; padding: 5rem 1.75rem 6rem; width: 100%; }
+    .eyebrow { font-size: 0.62rem; font-weight: 500; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(248,245,240,0.35); margin-bottom: 1.5rem; }
+    h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: clamp(2.4rem, 6.5vw, 3.6rem); font-weight: 300; line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 3rem; color: #f8f5f0; max-width: 14ch; }
+    h1 em { font-style: italic; color: rgba(248,245,240,0.5); }
+    p { font-size: 1.02rem; color: rgba(248,245,240,0.7); line-height: 1.85; margin-bottom: 1.5rem; max-width: 56ch; }
+    p strong { color: #f8f5f0; font-weight: 500; }
+    .rule { width: 32px; height: 1px; background: rgba(248,245,240,0.18); margin: 3rem 0; }
+    .cta-row { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; margin-top: 2.5rem; }
+    a.cta {
+      display: inline-flex; align-items: center; gap: 0.6rem;
+      background: #f8f5f0; color: #0a0a0a;
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 0.72rem; font-weight: 500;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      text-decoration: none;
+      padding: 1rem 1.75rem; border-radius: 100px;
+      transition: opacity 0.2s;
+    }
+    a.cta:hover { opacity: 0.88; }
+    a.text-link {
+      color: #f8f5f0; text-decoration: underline; text-underline-offset: 4px;
+      font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    a.text-link:hover { color: rgba(248,245,240,0.7); }
+    @media (max-width: 480px) {
+      main { padding: 3rem 1.5rem 5rem; }
+      p { font-size: 0.95rem; line-height: 1.75; }
+    }
+  </style>
+</head>
+<body>
+  ${renderSiteHeader({ current: 'about' })}
+  <main>
+    <div class="eyebrow">About</div>
+    <h1>The kit you wish you had <em>last week.</em></h1>
+
+    <p>CreatorHQ is a media kit and rate card generator built for <strong>African creators</strong>. The kind who get asked their rates more than they want to. The kind who answer brand DMs by hunting for last quarter's screenshot. The kind who undercharge because nobody told them what they were worth.</p>
+
+    <p>Build a designed, scrollable kit in five minutes without an account. Share a permanent link. Send a PDF. Let your numbers do the talking instead of you.</p>
+
+    <p>Built in Johannesburg by <strong>Mongezi Xhoma</strong>. No signup, no monthly fee, no enterprise sales call. The kit is yours, the URL is yours, the terms are yours. We get paid later, when the platform earns it.</p>
+
+    <div class="rule"></div>
+
+    <div class="cta-row">
+      <a href="/new" class="cta">Build mine →</a>
+      <a href="/c/KhKumalo" class="text-link">See an example</a>
+    </div>
+  </main>
+</body>
+</html>`;
+}
+
+// "This kit belongs to someone else." Rendered when a non-owner hits
+// /c/:id/edit. Conversion-friendly: surfaces three text-links (recover access,
+// view the kit as a visitor, build your own) instead of a punitive 403.
+export function renderNotYoursHTML(creator) {
+  const id = esc(creator?.id || '');
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CreatorHQ · This kit belongs to someone else</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <meta name="theme-color" content="#0a0a0a">
+  <style>
+    ${localFonts()}
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Instrument Sans', system-ui, sans-serif; background: #0a0a0a; color: #f8f5f0; min-height: 100vh; display: flex; flex-direction: column; }
+    main { flex: 1; max-width: 600px; margin: 0 auto; padding: 5rem 1.75rem 6rem; width: 100%; }
+    .eyebrow { font-size: 0.62rem; font-weight: 500; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(248,245,240,0.35); margin-bottom: 1.5rem; }
+    h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: clamp(2.2rem, 6vw, 3.4rem); font-weight: 300; line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 1.5rem; color: #f8f5f0; }
+    h1 em { font-style: italic; color: rgba(248,245,240,0.5); }
+    p { font-size: 1rem; color: rgba(248,245,240,0.65); line-height: 1.75; margin-bottom: 2.5rem; max-width: 50ch; }
+    .links { display: flex; flex-direction: column; gap: 1rem; }
+    .links a { color: #f8f5f0; text-decoration: underline; text-underline-offset: 4px; font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.4rem 0; }
+    .links a:hover { opacity: 0.7; }
+  </style>
+</head>
+<body>
+  ${renderSiteHeader({ current: 'notyours' })}
+  <main>
+    <div class="eyebrow">403 · Not your kit</div>
+    <h1>This kit belongs to <em>someone else.</em></h1>
+    <p>If you're trying to edit your own, recover access from this device. If you're a brand, view the kit as it was shared. Or build your own. It takes about five minutes.</p>
+    <div class="links">
+      <a href="/c/${id}/recover">Recover access to this kit →</a>
+      <a href="/c/${id}">View the kit →</a>
+      <a href="/new">Build your own →</a>
+    </div>
+  </main>
+</body>
+</html>`;
+}
+
+// Recovery page: contact + DOB form. POST /c/:id/recover validates the inputs
+// against the stored hashes and sets the owner cookie on success.
+// `flash` carries an optional error message ('mismatch' | 'rate_limited' | null).
+export function renderRecoverHTML(creator, { flash = null } = {}) {
+  const id = esc(creator?.id || '');
+  const flashMsg = flash === 'mismatch'
+    ? 'We could not verify those details. Try again.'
+    : flash === 'rate_limited'
+      ? 'Too many attempts. Wait an hour and try again.'
+      : '';
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CreatorHQ · Recover access</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <meta name="theme-color" content="#0a0a0a">
+  <style>
+    ${localFonts()}
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Instrument Sans', system-ui, sans-serif; background: #0a0a0a; color: #f8f5f0; min-height: 100vh; display: flex; flex-direction: column; }
+    main { flex: 1; max-width: 460px; margin: 0 auto; padding: 4rem 1.75rem 6rem; width: 100%; }
+    .eyebrow { font-size: 0.62rem; font-weight: 500; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(248,245,240,0.35); margin-bottom: 1.5rem; }
+    h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: clamp(2rem, 5.5vw, 2.8rem); font-weight: 300; line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 1rem; color: #f8f5f0; }
+    h1 em { font-style: italic; color: rgba(248,245,240,0.5); }
+    p.lede { font-size: 0.95rem; color: rgba(248,245,240,0.6); line-height: 1.7; margin-bottom: 2.5rem; }
+    label { display: block; font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(248,245,240,0.5); margin: 18px 0 8px; }
+    input { width: 100%; padding: 14px 16px; background: rgba(255,255,255,0.04); border: 1px solid rgba(248,245,240,0.12); color: #f8f5f0; font-family: 'Instrument Sans', sans-serif; font-size: 16px; border-radius: 4px; }
+    input:focus { outline: none; border-color: rgba(248,245,240,0.4); }
+    .dob-row { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 8px; }
+    .flash { background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.3); color: var(--red); padding: 12px 16px; border-radius: 4px; font-size: 0.82rem; margin-bottom: 1.5rem; }
+    button { margin-top: 2rem; width: 100%; background: #f8f5f0; color: #0a0a0a; font-family: 'Instrument Sans', sans-serif; font-size: 0.78rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; padding: 1.1rem; border: none; border-radius: 100px; cursor: pointer; transition: opacity 0.15s; }
+    button:hover { opacity: 0.85; }
+    .alt { margin-top: 1.5rem; font-size: 0.7rem; letter-spacing: 0.08em; }
+    .alt a { color: rgba(248,245,240,0.55); text-decoration: underline; text-underline-offset: 4px; }
+    .alt a:hover { color: #f8f5f0; }
+  </style>
+</head>
+<body>
+  ${renderSiteHeader({ current: 'recover' })}
+  <main>
+    <div class="eyebrow">Recover</div>
+    <h1>Edit access on <em>this device.</em></h1>
+    <p class="lede">Confirm the contact and date of birth you set when you built this kit. We never stored the raw values; we hash and compare.</p>
+    ${flashMsg ? `<div class="flash">${esc(flashMsg)}</div>` : ''}
+    <form method="post" action="/c/${id}/recover">
+      <label>Contact <span style="text-transform:none;letter-spacing:0;color:rgba(248,245,240,0.4);">· email or SA cell</span></label>
+      <input name="recovery_contact" type="text" inputmode="email" autocomplete="email" placeholder="you@example.com  or  0821234567" required />
+
+      <label style="margin-top:24px;">Date of birth <span style="text-transform:none;letter-spacing:0;color:rgba(248,245,240,0.4);">· DD / MM / YYYY</span></label>
+      <div class="dob-row">
+        <input name="recovery_dob_d" type="text" inputmode="numeric" pattern="\\d*" maxlength="2" placeholder="DD" required aria-label="Day" />
+        <input name="recovery_dob_m" type="text" inputmode="numeric" pattern="\\d*" maxlength="2" placeholder="MM" required aria-label="Month" />
+        <input name="recovery_dob_y" type="text" inputmode="numeric" pattern="\\d*" maxlength="4" placeholder="YYYY" required aria-label="Year" />
+      </div>
+
+      <button type="submit">Recover access</button>
+    </form>
+    <div class="alt">
+      Wrong kit? <a href="/c/${id}">View it as a visitor</a> · or <a href="/new">build your own</a>.
+    </div>
+  </main>
+  <script>
+    (function() {
+      var dobInputs = document.querySelectorAll('input[name^="recovery_dob_"]');
+      if (!dobInputs.length) return;
+      dobInputs.forEach(function(el, i) {
+        el.addEventListener('input', function() {
+          if (el.value.length >= el.maxLength && i < dobInputs.length - 1) {
+            dobInputs[i + 1].focus();
+          }
+        });
+        el.addEventListener('keydown', function(e) {
+          if (e.key === 'Backspace' && el.value === '' && i > 0) {
+            dobInputs[i - 1].focus();
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+</html>`;
+}
+
+// Tiny markdown renderer. Headings, paragraphs, bold, italic, links, lists.
+// Enough for the Privacy + Terms docs without adding a dependency.
+//
+// SECURITY: SOURCE MUST BE OPERATOR-CONTROLLED. The link rule (`[txt](url)`)
+// will happily emit any href; we filter `javascript:` and `data:` schemes
+// here, but the broader fence is "do not feed user input into this
+// function". If you ever do, also re-audit escapeHtml against the rest of
+// the rules; bold/italic/link patterns assume already-escaped text and a
+// trusted author.
+function tinyMarkdown(md) {
+  const escapeHtml = (s) => String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const lines = String(md || '').replace(/\r\n/g, '\n').split('\n');
+  const out = [];
+  let inList = false;
+  for (let raw of lines) {
+    const line = raw.trimEnd();
+    if (!line.trim()) {
+      if (inList) { out.push('</ul>'); inList = false; }
+      continue;
+    }
+    const m1 = line.match(/^# (.+)$/);
+    const m2 = line.match(/^## (.+)$/);
+    const m3 = line.match(/^### (.+)$/);
+    const mli = line.match(/^[-*] (.+)$/);
+    if (m1) { if (inList) { out.push('</ul>'); inList = false; } out.push(`<h1>${escapeHtml(m1[1])}</h1>`); continue; }
+    if (m2) { if (inList) { out.push('</ul>'); inList = false; } out.push(`<h2>${escapeHtml(m2[1])}</h2>`); continue; }
+    if (m3) { if (inList) { out.push('</ul>'); inList = false; } out.push(`<h3>${escapeHtml(m3[1])}</h3>`); continue; }
+    if (mli) {
+      if (!inList) { out.push('<ul>'); inList = true; }
+      out.push(`<li>${inlineMd(mli[1])}</li>`);
+      continue;
+    }
+    if (inList) { out.push('</ul>'); inList = false; }
+    out.push(`<p>${inlineMd(line)}</p>`);
+  }
+  if (inList) out.push('</ul>');
+  return out.join('\n');
+
+  function inlineMd(s) {
+    let txt = escapeHtml(s);
+    // Links [text](url) — guard the href scheme. Allow http(s), mailto,
+    // anchor, and absolute-path. Reject everything else (notably
+    // javascript: and data:) to a plain text span so a future operator
+    // pasting a sketchy link doesn't ship an XSS by accident.
+    txt = txt.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label, url) => {
+      const safe = /^(https?:\/\/|mailto:|\/|#)/i.test(url.trim());
+      return safe
+        ? `<a href="${url}">${label}</a>`
+        : `<span>${label}</span>`;
+    });
+    // Bold **text**
+    txt = txt.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    // Italic *text*
+    txt = txt.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    return txt;
+  }
+}
+
+// Shared chrome for Privacy + Terms — same dark register as About.
+function renderDocPage({ title, mdBody, ogPath }) {
+  const html = tinyMarkdown(mdBody);
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CreatorHQ · ${esc(title)}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  ${ogMeta({
+    title: `CreatorHQ · ${title}`,
+    description: `${title} for CreatorHQ.`,
+    image: absoluteUrl('/og-default.png'),
+    url: absoluteUrl(ogPath),
+    type: 'article'
+  })}
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <meta name="theme-color" content="#0a0a0a">
+  <style>
+    ${localFonts()}
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Instrument Sans', system-ui, sans-serif; background: #0a0a0a; color: #f8f5f0; min-height: 100vh; display: flex; flex-direction: column; }
+    main { flex: 1; max-width: 640px; margin: 0 auto; padding: 4rem 1.75rem 6rem; width: 100%; }
+    h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: clamp(2.4rem, 6vw, 3.4rem); font-weight: 300; line-height: 1.05; letter-spacing: -0.02em; margin: 0 0 2rem; color: #f8f5f0; }
+    h2 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 1.4rem; font-weight: 500; line-height: 1.2; margin: 2.5rem 0 1rem; color: #f8f5f0; }
+    h3 { font-family: 'Instrument Sans', sans-serif; font-size: 0.78rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(248,245,240,0.45); margin: 2rem 0 0.6rem; }
+    p { font-size: 1rem; color: rgba(248,245,240,0.7); line-height: 1.85; margin-bottom: 1.4rem; }
+    p strong { color: #f8f5f0; font-weight: 500; }
+    p em { color: rgba(248,245,240,0.85); }
+    p a { color: #f8f5f0; text-decoration: underline; text-underline-offset: 4px; }
+    p a:hover { opacity: 0.7; }
+    ul { color: rgba(248,245,240,0.7); font-size: 1rem; line-height: 1.85; margin: 0 0 1.4rem 1.25rem; padding-left: 0.5rem; }
+    ul li { margin-bottom: 0.4rem; }
+    @media (max-width: 480px) { main { padding: 3rem 1.5rem 5rem; } p, ul { font-size: 0.95rem; } }
+  </style>
+</head>
+<body>
+  ${renderSiteHeader({ current: 'doc' })}
+  <main>
+    ${html}
+  </main>
+</body>
+</html>`;
+}
+
+export function renderPrivacyHTML(mdBody) {
+  return renderDocPage({ title: 'Privacy', mdBody, ogPath: '/privacy' });
+}
+
+export function renderTermsHTML(mdBody) {
+  return renderDocPage({ title: 'Terms', mdBody, ogPath: '/terms' });
 }
 
 // ---- self-hosted typeface @font-face block --------------------------------
@@ -282,6 +635,7 @@ function headCSS() {
       --off:   #f5f5f5;
       --rule:  rgba(10,10,10,0.15);
       --muted: rgba(10,10,10,0.45);
+      --red:   #dc2626;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -533,26 +887,10 @@ function headCSS() {
       .page { margin: 0; box-shadow: none; }
     }
 
-    /* ---- DATED / DECAY RULE ---- */
-    .is-dated {
-      opacity: 0.6;
-      filter: grayscale(1);
-      position: relative;
-    }
-    .dated-badge {
-      display: none;
-      position: absolute;
-      top: 1rem;
-      left: 1rem;
-      background: rgba(0,0,0,0.8);
-      color: #fff;
-      padding: 4px 12px;
-      font-size: 0.6rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      z-index: 1000;
-      border-radius: 2px;
-    }
+    /* Decay-Rule legacy CSS (.is-dated, .dated-badge) was removed in Phase B.
+       The freshness signal now lives in the hero-bar via .chq-fresh on kit and
+       .rate-fresh on the rate card. See formatFreshness() upstream.            */
+
     .nudge {
       position: fixed;
       bottom: 1.5rem;
@@ -647,7 +985,6 @@ function headCSS() {
       .nudge { bottom: 0; left: 0; right: 0; transform: none; width: 100%; border-radius: 0; border-top: 1px solid rgba(0,0,0,0.05); }
       @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
     }
-    .is-dated .dated-badge { display: block; }
 
     /* ---- BRAND EVIDENCE ---- */
     .brand-evidence {
@@ -718,12 +1055,40 @@ function renderSavedBanner() {
   </div>`;
 }
 
-export function renderCardHTML(creator, { forPDF = false, justCreated = false, justSaved = false } = {}) {
-  // Decay Rule calculation (7-day visual downgrade)
+// Freshness label shown in the hero-bar slot (where a dim duplicate "CreatorHQ"
+// wordmark used to live). Returns { text, stale } where stale=true after 7
+// days so callers can render in an "outdated" tone. The 7-day cliff matches
+// the existing isDated logic in the kit page; it is the de-facto "live kit"
+// guarantee we make to brands.
+//   {text:'Edited today',         stale:false}
+//   {text:'Edited 3 days ago',    stale:false}
+//   {text:'Edited 9 days ago',    stale:true}
+//   {text:'Edited Apr 2025',      stale:true}  // > 12 months
+function formatFreshness(iso) {
+  if (!iso) return null;
+  const then = new Date(iso);
+  if (isNaN(then.getTime())) return null;
+  const days = Math.floor((Date.now() - then.getTime()) / (1000 * 60 * 60 * 24));
+  const stale = days > 7;
+  let text;
+  if (days < 1) text = 'Edited today';
+  else if (days === 1) text = 'Edited yesterday';
+  else if (days < 30) text = `Edited ${days} days ago`;
+  else if (days < 60) text = 'Edited last month';
+  else {
+    const months = Math.floor(days / 30);
+    if (months < 12) text = `Edited ${months} months ago`;
+    else text = `Edited ${then.toLocaleDateString('en-ZA', { month: 'short', year: 'numeric' })}`;
+  }
+  return { text, stale };
+}
+
+export function renderCardHTML(creator, { forPDF = false, justCreated = false, justSaved = false, isOwner = false } = {}) {
+  // Decay Rule calculation (7-day visual downgrade) — kept for back-compat,
+  // but the visible decay signal now lives in the hero-bar freshness slot
+  // (formatFreshness) rather than the old grey-out + .dated-badge band.
   const statsDate = creator.statsUpdatedAt ? new Date(creator.statsUpdatedAt) : null;
-  const daysOld = statsDate ? Math.floor((Date.now() - statsDate) / (1000 * 60 * 60 * 24)) : 0;
-  const isDated = daysOld > 7;
-  const datedLabel = statsDate ? `Dated (last updated ${statsDate.toLocaleDateString('en-ZA', { day:'numeric', month:'short' })})` : '';
+  const freshness = formatFreshness(creator.statsUpdatedAt);
 
   // Platform data — support both old (ig/tt/yt) and new (fb) structure
   const ig  = creator.platforms?.instagram || creator.platformsOld?.instagram || {};
@@ -731,10 +1096,12 @@ export function renderCardHTML(creator, { forPDF = false, justCreated = false, j
   const yt  = creator.platforms?.youtube   || creator.platformsOld?.youtube   || {};
   const fb  = creator.platforms?.facebook  || {};
 
-  // Name split — first upright, last in italic (Cormorant Garamond)
-  const nameParts = (creator.name || '').trim().split(' ');
-  const firstName = esc(nameParts[0] || 'Your');
-  const lastName  = esc(nameParts.slice(1).join(' ') || 'Name');
+  // Name split — first upright, last in italic (Cormorant Garamond).
+  // Prefer nameDetails (from dedicated First name + Surname form fields)
+  // over the legacy single-string whitespace split, which breaks on
+  // compound surnames ("Van Wyk") and single-name entries.
+  const firstName = esc(creator.nameDetails?.first || (creator.name || '').trim().split(' ')[0] || 'Your');
+  const lastName  = esc(creator.nameDetails?.last  || (creator.name || '').trim().split(' ').slice(1).join(' ') || '');
 
   // Bio paragraphs — prefer new bioParagraphs[], fallback to bio string split
   const bioParagraphs = creator.bioParagraphs?.length
@@ -858,7 +1225,14 @@ export function renderCardHTML(creator, { forPDF = false, justCreated = false, j
     }
     .hero-bar { position: absolute; top: 0; left: 0; right: 0; padding: 2rem 3.5rem; display: flex; justify-content: space-between; align-items: center; z-index: 2; }
     .kit-label { font-size: 0.56rem; font-weight: 500; letter-spacing: 0.28em; text-transform: uppercase; color: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.09); padding: 0.32rem 0.75rem; border-radius: 100px; }
-    .chq-mark  { font-size: 0.54rem; font-weight: 500; letter-spacing: 0.32em; text-transform: uppercase; color: rgba(255,255,255,0.13); }
+    /* Freshness slot — replaces the dim duplicate "CreatorHQ" wordmark.
+       White at full opacity to read as a live signal to brands. A 6px dot
+       sits left of the text: green for fresh (≤7d), amber when stale.    */
+    .chq-fresh { display:inline-flex; align-items:center; gap:0.45rem; font-size: 0.6rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: #fff; }
+    .chq-fresh__dot { width:6px; height:6px; border-radius:50%; background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,0.18); }
+    .chq-fresh--stale { color: #f59e0b; }
+    .chq-fresh--stale .chq-fresh__dot { background:#f59e0b; box-shadow:0 0 0 3px rgba(245,158,11,0.2); }
+    @media print { .chq-fresh__dot { box-shadow:none; } }
     .hero-name { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: clamp(3rem, 5vw, 5.5rem); line-height: 0.92; color: var(--white); letter-spacing: -0.01em; position: relative; z-index: 2; }
     .hero-name em { font-style: italic; color: rgba(255,255,255,0.35); }
     .hero-rule { width: 24px; height: 1px; background: rgba(255,255,255,0.25); margin: 2rem 0 1.5rem; position: relative; z-index: 2; }
@@ -1049,18 +1423,10 @@ export function renderCardHTML(creator, { forPDF = false, justCreated = false, j
 </head>
 <body>
 
-${forPDF ? '' : renderSiteHeader({
-  current: 'kit',
-  back: { href: '/', label: 'Home' },
-  theme: 'on-light'
-})}
+${forPDF ? '' : renderSiteHeader({ current: 'kit' })}
 
 ${(!forPDF && justCreated) ? renderCreatedBanner(creator, 'Media kit') : ''}
 ${(!forPDF && justSaved && !justCreated) ? renderSavedBanner() : ''}
-
-<!-- ── DATED OVERLAY ── -->
-<div class="${isDated ? 'is-dated' : ''}">
-  ${isDated ? `<div class="dated-badge">${datedLabel}</div>` : ''}
 
 <!-- ── HERO / COVER ── -->
 <header class="hero">
@@ -1072,7 +1438,12 @@ ${(!forPDF && justSaved && !justCreated) ? renderSavedBanner() : ''}
   <div class="hero-text">
     <div class="hero-bar">
       <span class="kit-label">Media Kit · ${year}</span>
-      <span class="chq-mark">CreatorHQ</span>
+      ${freshness
+        ? `<span class="chq-fresh${freshness.stale ? ' chq-fresh--stale' : ''}" title="${esc(statsDate ? statsDate.toLocaleDateString('en-ZA', { day:'numeric', month:'short', year:'numeric' }) : '')}">
+            <span class="chq-fresh__dot" aria-hidden="true"></span>
+            <span>${esc(freshness.stale ? 'Outdated · ' + freshness.text : freshness.text)}</span>
+          </span>`
+        : `<span class="chq-fresh"><span class="chq-fresh__dot" aria-hidden="true"></span><span>New</span></span>`}
     </div>
     <div class="hero-name fade-up d1">${firstName}<br><em>${lastName}</em></div>
     <div class="hero-rule fade-up d2"></div>
@@ -1271,7 +1642,6 @@ ${audience ? `
     </div>
   </div>
 </footer>
-</div>
 
 <!-- ── FLOATING ACTION BAR ── -->
 <!--
@@ -1286,11 +1656,23 @@ ${audience ? `
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
     <span>Copy Link</span>
   </button>
-  <div class="bar-divider"></div>
+  ${isOwner ? `<div class="bar-divider"></div>
   <a href="/c/${esc(creator.id)}/edit" style="display:flex;align-items:center;gap:0.45rem;color:rgba(255,255,255,0.7);text-decoration:none;font-family:'Instrument Sans',sans-serif;font-size:0.7rem;font-weight:400;letter-spacing:0.06em;padding:0.3rem 0.6rem;border-radius:100px;white-space:nowrap;transition:color 0.15s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
     <span>Edit</span>
   </a>
+  <div class="bar-divider"></div>
+  <a href="/c/${esc(creator.id)}?as=visitor" title="See your kit the way a visitor sees it" style="display:flex;align-items:center;gap:0.45rem;color:rgba(255,255,255,0.7);text-decoration:none;font-family:'Instrument Sans',sans-serif;font-size:0.7rem;font-weight:400;letter-spacing:0.06em;padding:0.3rem 0.6rem;border-radius:100px;white-space:nowrap;transition:color 0.15s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+    <span>As Visitor</span>
+  </a>
+  <div class="bar-divider"></div>
+  <form method="post" action="/c/${esc(creator.id)}/signout" style="margin:0;padding:0;display:flex;">
+    <button type="submit" title="Stop editing on this device" style="display:flex;align-items:center;gap:0.45rem;color:rgba(255,255,255,0.55);font-family:'Instrument Sans',sans-serif;font-size:0.7rem;font-weight:400;letter-spacing:0.06em;padding:0.3rem 0.6rem;border-radius:100px;white-space:nowrap;transition:color 0.15s;background:none;border:none;cursor:pointer;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.55)'">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      <span>Sign out</span>
+    </button>
+  </form>` : ''}
   <div class="bar-divider"></div>
   <a href="/c/${esc(creator.id)}/rate-card" style="display:flex;align-items:center;gap:0.45rem;color:rgba(255,255,255,0.7);text-decoration:none;font-family:'Instrument Sans',sans-serif;font-size:0.7rem;font-weight:400;letter-spacing:0.06em;padding:0.3rem 0.6rem;border-radius:100px;white-space:nowrap;transition:color 0.15s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">
     Rate Card →
@@ -1352,9 +1734,8 @@ ${renderNudge(creator)}
 // Page 3: Audience + Brands + Packages + Rates + Footer
 
 export function renderPDFHTML(creator, photoBase64 = null) {
-  const nameParts = (creator.name || '').trim().split(' ');
-  const firstName = esc(nameParts[0] || 'Your');
-  const lastName  = esc(nameParts.slice(1).join(' ') || 'Name');
+  const firstName = esc(creator.nameDetails?.first || (creator.name || '').trim().split(' ')[0] || 'Your');
+  const lastName  = esc(creator.nameDetails?.last  || (creator.name || '').trim().split(' ').slice(1).join(' ') || '');
   const role      = creator.niche    || 'Digital Content Creator';
   const subtitle  = creator.subtitle || '';
   const location  = creator.location || '';
@@ -1973,40 +2354,41 @@ export function renderPDFHTML(creator, photoBase64 = null) {
 
 // ---- Rate Card (clean 1-pager) ----
 
-export function renderRateCardHTML(creator, { justCreated = false, justSaved = false } = {}) {
-  // Decay Rule calculation (7-day visual downgrade)
+export function renderRateCardHTML(creator, { justCreated = false, justSaved = false, isOwner = false } = {}) {
+  // Freshness signal — same model as the kit page. Stale at >7d.
   const statsDate = creator.statsUpdatedAt ? new Date(creator.statsUpdatedAt) : null;
-  const daysOld = statsDate ? Math.floor((Date.now() - statsDate) / (1000 * 60 * 60 * 24)) : 0;
-  const isDated = daysOld > 7;
-  const datedLabel = statsDate ? `Dated (last updated ${statsDate.toLocaleDateString('en-ZA', { day:'numeric', month:'short' })})` : '';
+  const freshness = formatFreshness(creator.statsUpdatedAt);
 
-  const nameParts = (creator.name || '').trim().split(' ');
-  const firstName = esc(nameParts[0] || 'Your');
-  const lastName  = esc(nameParts.slice(1).join(' ') || 'Name');
+  // Name — prefer nameDetails (dedicated First name + Surname form fields).
+  const firstName = esc(creator.nameDetails?.first || (creator.name || '').trim().split(' ')[0] || 'Your');
+  const lastName  = esc(creator.nameDetails?.last  || (creator.name || '').trim().split(' ').slice(1).join(' ') || '');
+  const fullName  = [firstName, lastName].filter(Boolean).join(' ');
+
   const role      = creator.niche    || 'Content Creator';
   const location  = creator.location || '';
-  const rates     = creator.customRates || creator.rates || [];
+  const contactEmail = creator.email || creator.contact?.email || '';
+  const rates     = creator.customRates || [];
   const rateHourly = creator.rates?.hourly || 0;
-  const ratePkgs = creator.rates?.packages || {};
+  const ratePkgs  = creator.rates?.packages || {};
   const packages  = creator.packages || [];
   const ig  = creator.platforms?.instagram || creator.platformsOld?.instagram || {};
   const tt  = creator.platforms?.tiktok    || creator.platformsOld?.tiktok    || {};
   const fb  = creator.platforms?.facebook  || {};
+  const photoUrl  = creator.photo?.url || '';
 
-  const platformStats = [
-    fb.followers ? `${fmtNum(fb.followers)}+ Facebook` : null,
-    tt.followers ? `${fmtNum(tt.followers)}+ TikTok`   : null,
-    ig.followers ? `${fmtNum(ig.followers)}+ Instagram` : null,
-  ].filter(Boolean);
+  // Top-3 platform stats for the cover panel stats row.
+  const coverStats = [
+    fb.followers ? { val: fmtNum(fb.followers) + '+', lbl: 'Facebook' }    : null,
+    tt.followers ? { val: fmtNum(tt.followers) + '+', lbl: 'TikTok' }      : null,
+    ig.followers ? { val: fmtNum(ig.followers) + '+', lbl: 'Instagram' }   : null,
+  ].filter(Boolean).slice(0, 3);
 
-  const year = new Date(creator.createdAt || Date.now()).getFullYear();
+  const year = new Date().getFullYear();
 
-  // Share-preview metadata for the rate card.
-  const rcTitle = `${firstName} ${lastName} · Rate Card`;
-  const rcDesc = creator.tagline
-    || `Rates for ${firstName} ${lastName}. ${creator.role || creator.niche || 'Creator'}.`;
-  const rcImage = creator.photo?.url ? absoluteUrl(creator.photo.url) : '';
-  const rcUrl = absoluteUrl(`/c/${creator.id}/rate-card`);
+  const rcTitle = `${fullName} · Rate Card`;
+  const rcDesc  = creator.tagline || `Rates for ${fullName}. ${role}.`;
+  const rcImage = photoUrl ? absoluteUrl(photoUrl) : '';
+  const rcUrl   = absoluteUrl(`/c/${creator.id}/rate-card`);
 
   return `<!doctype html>
 <html lang="en">
@@ -2019,138 +2401,518 @@ export function renderRateCardHTML(creator, { justCreated = false, justSaved = f
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <meta name="theme-color" content="#0a0a0a">
   <style>${localFonts()}</style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
+    /* ── Reset ── */
     *{margin:0;padding:0;box-sizing:border-box}
-    html,body{background:#ffffff;color:#0a0a0a;font-family:'Instrument Sans',sans-serif;font-weight:300;font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
-    .page{max-width:760px;margin:0 auto;padding:4rem 4rem 6rem}
-    .header{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:2.5rem;border-bottom:2px solid #0a0a0a;margin-bottom:3rem}
-    .name{font-family:'Cormorant Garamond',serif;font-size:3rem;font-weight:300;line-height:0.92}
-    .name em{font-style:italic;color:rgba(0,0,0,0.3)}
-    .header-right{text-align:right}
-    .label{font-size:0.55rem;font-weight:500;letter-spacing:0.3em;text-transform:uppercase;color:rgba(0,0,0,0.35)}
-    .role-line{font-size:0.8rem;color:rgba(0,0,0,0.5);margin-top:0.3rem}
-    .stats-bar{display:flex;gap:2.5rem;padding:1.5rem 0;border-bottom:1px solid rgba(0,0,0,0.1);margin-bottom:3rem}
-    .stat-item .num{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:300;line-height:1}
-    .stat-item .lbl{font-size:0.52rem;font-weight:500;letter-spacing:0.2em;text-transform:uppercase;color:rgba(0,0,0,0.3);margin-top:0.2rem}
-    .section-label{font-size:0.55rem;font-weight:500;letter-spacing:0.3em;text-transform:uppercase;color:rgba(0,0,0,0.35);margin-bottom:1.2rem}
-    .rates-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(0,0,0,0.08);margin-bottom:3rem}
-    .rate-cell{background:#fff;padding:1.8rem 1.5rem}
-    .rate-type{font-size:0.62rem;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;color:rgba(0,0,0,0.4);margin-bottom:0.8rem}
-    .rate-price{font-family:'Cormorant Garamond',serif;font-size:2.2rem;font-weight:300;line-height:1}
-    .rate-note{font-size:0.62rem;color:rgba(0,0,0,0.3);margin-top:0.3rem}
-    .packages-list{display:flex;flex-direction:column;gap:1px;background:rgba(0,0,0,0.08)}
-    .pkg-row{background:#fff;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center}
-    .pkg-row.highlight{background:#0a0a0a;color:#fff}
-    .pkg-name{font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:300}
-    .pkg-row.highlight .pkg-name{color:rgba(255,255,255,0.9)}
-    .pkg-desc{font-size:0.7rem;color:rgba(0,0,0,0.4);margin-top:0.2rem}
-    .pkg-row.highlight .pkg-desc{color:rgba(255,255,255,0.4)}
-    .pkg-price{font-family:'Cormorant Garamond',serif;font-size:1.2rem;font-weight:300;white-space:nowrap}
-    .pkg-row.highlight .pkg-price{color:rgba(255,255,255,0.7)}
-    .footer{margin-top:3rem;padding-top:2rem;border-top:1px solid rgba(0,0,0,0.1);display:flex;justify-content:space-between;align-items:center}
-    .footer-name{font-size:0.6rem;font-weight:500;letter-spacing:0.2em;text-transform:uppercase;color:rgba(0,0,0,0.3)}
-    .footer-contact{font-size:0.6rem;color:rgba(0,0,0,0.3)}
-    #action-bar{position:fixed;bottom:2rem;right:2rem;z-index:100;display:flex;align-items:center;background:#0a0a0a;border:1px solid rgba(255,255,255,0.1);border-radius:100px;padding:0.5rem 0.75rem;box-shadow:0 8px 32px rgba(0,0,0,0.25)}
-    #action-bar button,#action-bar a{display:flex;align-items:center;gap:0.4rem;background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.7);font-family:'Instrument Sans',sans-serif;font-size:0.7rem;font-weight:400;letter-spacing:0.06em;padding:0.3rem 0.6rem;border-radius:100px;text-decoration:none;transition:color 0.15s;white-space:nowrap}
-    #action-bar button:hover,#action-bar a:hover{color:#fff}
-    .bar-divider{width:1px;height:14px;background:rgba(255,255,255,0.12);margin:0 0.25rem}
-    @media print{#action-bar{display:none}}
+
+    /* ── Document viewer shell ───────────────────────────────────────────
+       Dark surround communicates "this is a document, not a webpage."
+       The body is the viewer; #rc-page is the paper floating inside it.
+       On mobile the surround collapses to black, paper goes full-width. */
+    html,body {
+      background: #1c1c1c;
+      color: #0a0a0a;
+      font-family: 'Instrument Sans', sans-serif;
+      font-weight: 300;
+      font-size: 15px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+
+    /* ── Viewer wrapper: centres the paper card with padding ── */
+    .rc-viewer {
+      padding: 2.5rem 1.5rem 6rem;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    /* ── Rate card "paper" ───────────────────────────────────────────────
+       Web + mobile: responsive, max 860px, content-height, paper shadow.
+       PDF export: JS forces width:794px + min-height:1123px on this div
+       before html2canvas capture, then restores. The grid columns are
+       also forced to 260px 1fr at export time.                          */
+    #rc-page {
+      width: 100%;
+      max-width: 860px;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      background: #f0ece4;
+      overflow: hidden;
+      box-shadow: 0 8px 48px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.3);
+      border-radius: 2px;
+    }
+
+    /* ── Left: photo panel ── */
+    .rc-photo-col {
+      background: #0a0a0a;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      overflow: hidden;
+      min-height: 480px;
+    }
+    .rc-photo {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+      opacity: 0.75;
+    }
+    .rc-photo-empty {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%);
+    }
+    /* Gradient overlay so text always reads on dark */
+    .rc-photo-col::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.18) 55%, transparent 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
+    .rc-photo-identity {
+      position: relative;
+      z-index: 2;
+      padding: 1.5rem 1.4rem 1.8rem;
+    }
+    .rc-photo-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-size: 1.75rem;
+      line-height: 1.0;
+      color: #f8f5f0;
+    }
+    .rc-photo-name em { font-style: italic; color: rgba(248,245,240,0.45); }
+    .rc-photo-role {
+      font-size: 0.54rem;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(248,245,240,0.38);
+      margin-top: 0.55rem;
+      line-height: 1.9;
+    }
+    .rc-stats-col {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-top: 1rem;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .rc-stat {
+      padding: 0.55rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .rc-stat .num {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.35rem;
+      font-weight: 300;
+      color: #f8f5f0;
+      line-height: 1;
+    }
+    .rc-stat .lbl {
+      font-size: 0.48rem;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(248,245,240,0.28);
+      margin-top: 0.15rem;
+    }
+
+    /* ── Right: document column ── */
+    .rc-doc-col {
+      background: #f0ece4;
+      display: flex;
+      flex-direction: column;
+      padding: 1.8rem 1.6rem 1.6rem;
+      min-height: 480px;
+    }
+
+    /* Document header */
+    .rc-doc-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 1rem;
+      border-bottom: 1.5px solid #0a0a0a;
+      margin-bottom: 1.4rem;
+    }
+    .rc-doc-title {
+      font-size: 0.5rem;
+      font-weight: 500;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      color: rgba(10,10,10,0.35);
+    }
+    .rc-fresh {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.5rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #0a0a0a;
+    }
+    .rc-fresh__dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #16a34a;
+    }
+    .rc-fresh--stale { color: #b45309; }
+    .rc-fresh--stale .rc-fresh__dot { background: #f59e0b; }
+
+    /* Section labels */
+    .rc-section-label {
+      font-size: 0.48rem;
+      font-weight: 500;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: rgba(10,10,10,0.35);
+      margin-bottom: 0.6rem;
+    }
+
+    /* Rates grid */
+    .rc-rates {
+      display: grid;
+      gap: 1px;
+      background: rgba(10,10,10,0.1);
+      margin-bottom: 1.2rem;
+    }
+    .rc-rate-cell {
+      background: #f0ece4;
+      padding: 0.9rem 0.85rem;
+    }
+    .rc-rate-type {
+      font-size: 0.5rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(10,10,10,0.4);
+      margin-bottom: 0.35rem;
+    }
+    .rc-rate-price {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.5rem;
+      font-weight: 300;
+      line-height: 1;
+      color: #0a0a0a;
+    }
+    .rc-rate-note {
+      font-size: 0.54rem;
+      color: rgba(10,10,10,0.35);
+      margin-top: 0.2rem;
+      line-height: 1.5;
+    }
+
+    /* Packages */
+    .rc-packages {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background: rgba(10,10,10,0.1);
+      margin-bottom: 1.2rem;
+    }
+    .rc-pkg {
+      background: #f0ece4;
+      padding: 0.8rem 0.85rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+    .rc-pkg.highlight { background: #0a0a0a; }
+    .rc-pkg__name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1rem;
+      font-weight: 300;
+      color: #0a0a0a;
+    }
+    .rc-pkg.highlight .rc-pkg__name { color: rgba(248,245,240,0.9); }
+    .rc-pkg__desc {
+      font-size: 0.58rem;
+      color: rgba(10,10,10,0.4);
+      margin-top: 0.1rem;
+      line-height: 1.5;
+    }
+    .rc-pkg.highlight .rc-pkg__desc { color: rgba(248,245,240,0.38); }
+    .rc-pkg__price {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1rem;
+      font-weight: 300;
+      white-space: nowrap;
+      flex-shrink: 0;
+      color: #0a0a0a;
+    }
+    .rc-pkg.highlight .rc-pkg__price { color: rgba(248,245,240,0.7); }
+
+    /* Footer — pinned to bottom of doc col */
+    .rc-doc-footer {
+      margin-top: auto;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(10,10,10,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-top: 1.5rem;
+    }
+    .rc-contact {
+      font-size: 0.58rem;
+      color: rgba(10,10,10,0.45);
+      line-height: 1.9;
+    }
+    .rc-credit {
+      font-size: 0.44rem;
+      font-weight: 500;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(10,10,10,0.18);
+      text-align: right;
+      line-height: 1.8;
+    }
+    .rc-credit span { color: rgba(10,10,10,0.32); }
+
+    /* ── Action bar ── */
+    #action-bar {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      background: #0a0a0a;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 100px;
+      padding: 0.5rem 0.75rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    }
+    #action-bar button,#action-bar a {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: rgba(255,255,255,0.7);
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 400;
+      letter-spacing: 0.06em;
+      padding: 0.3rem 0.6rem;
+      border-radius: 100px;
+      text-decoration: none;
+      transition: color 0.15s;
+      white-space: nowrap;
+    }
+    #action-bar button:hover,#action-bar a:hover { color: #fff; }
+    .bar-divider { width:1px; height:14px; background:rgba(255,255,255,0.12); margin:0 0.25rem; }
+
+    /* ── Mobile: single column below 640px ── */
+    @media (max-width: 640px) {
+      .rc-viewer { padding: 0 0 5rem; }
+      #rc-page {
+        grid-template-columns: 1fr;
+        box-shadow: none;
+        border-radius: 0;
+      }
+      .rc-photo-col {
+        min-height: 65vw;
+        max-height: 420px;
+      }
+      .rc-photo-identity { padding: 1.1rem 1.2rem 1.4rem; }
+      .rc-photo-name { font-size: 1.5rem; }
+      .rc-doc-col { padding: 1.4rem 1.2rem 1.4rem; min-height: auto; }
+      #action-bar {
+        bottom: 0;
+        right: 0;
+        left: 0;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        border-bottom: none;
+        overflow-x: auto;
+        scrollbar-width: none;
+        justify-content: flex-start;
+        padding: 0.5rem 0.75rem;
+      }
+      #action-bar::-webkit-scrollbar { display: none; }
+    }
+    @media print { #action-bar, .chq-nav, .rc-viewer-pad { display: none; } }
   </style>
 </head>
-<body class="${isDated ? 'is-dated' : ''}">
-${renderSiteHeader({
-  current: 'rate-card',
-  back: { href: `/c/${esc(creator.id)}`, label: 'Full kit' },
-  theme: 'on-light'
-})}
+<body>
+${renderSiteHeader({ current: 'rate-card' })}
 ${justCreated ? renderCreatedBanner(creator, 'Rate card') : ''}
 ${(justSaved && !justCreated) ? renderSavedBanner() : ''}
-${isDated ? `<div class="dated-badge">${datedLabel}</div>` : ''}
-<div class="page">
-  <div class="header">
-    <div>
-      <div class="label">Rate Card · ${year}</div>
-      <div class="name" style="margin-top:0.5rem">${firstName}<br><em>${lastName}</em></div>
-    </div>
-    <div class="header-right">
-      <div class="label">CreatorHQ</div>
-      <div class="role-line">${esc(role)}${location ? ` · ${esc(location)}` : ''}</div>
+
+<div class="rc-viewer">
+<div id="rc-page">
+  <!-- ── Left: photo + identity ── -->
+  <div class="rc-photo-col">
+    ${photoUrl
+      ? `<img class="rc-photo" src="${esc(photoUrl)}" alt="${esc(fullName)}">`
+      : `<div class="rc-photo-empty"></div>`}
+    <div class="rc-photo-identity">
+      <div class="rc-photo-name">${firstName}<br><em>${lastName}</em></div>
+      <div class="rc-photo-role">${esc(role)}${location ? `<br>${esc(location)}` : ''}</div>
+      ${coverStats.length > 0 ? `
+      <div class="rc-stats-col">
+        ${coverStats.map(s => `
+        <div class="rc-stat">
+          <div class="num">${esc(s.val)}</div>
+          <div class="lbl">${esc(s.lbl)}</div>
+        </div>`).join('')}
+      </div>` : ''}
     </div>
   </div>
 
-  ${platformStats.length > 0 ? `
-  <div class="stats-bar">
-    ${platformStats.map(s => `<div class="stat-item"><div class="num">${s.split(' ')[0]}</div><div class="lbl">${s.split(' ').slice(1).join(' ')}</div></div>`).join('')}
-  </div>` : ''}
+  <!-- ── Right: document ── -->
+  <div class="rc-doc-col">
+    <div class="rc-doc-header">
+      <div class="rc-doc-title">Rate Card · ${year}</div>
+      ${freshness
+        ? `<div class="rc-fresh${freshness.stale ? ' rc-fresh--stale' : ''}" title="${esc(statsDate ? statsDate.toLocaleDateString('en-ZA', { day:'numeric', month:'short', year:'numeric' }) : '')}">
+            <span class="rc-fresh__dot" aria-hidden="true"></span>
+            <span>${esc(freshness.stale ? 'Outdated · ' + freshness.text : freshness.text)}</span>
+           </div>`
+        : `<div class="rc-fresh"><span class="rc-fresh__dot" aria-hidden="true"></span><span>New</span></div>`}
+    </div>
 
-  ${rateHourly || Object.values(ratePkgs).some(v => v > 0) ? `
-  <div class="section-label">Collaboration Rates</div>
-  <div class="rates-grid" style="grid-template-columns:repeat(${1 + Object.values(ratePkgs).filter(v => v > 0).length},1fr)">
-    ${rateHourly ? `
-    <div class="rate-cell">
-      <div class="rate-type">Hourly Rate</div>
-      <div class="rate-price">${esc(fmtCurrency(rateHourly))}</div>
+    ${rateHourly || Object.values(ratePkgs).some(v => v > 0) ? `
+    <div class="rc-section-label">Collaboration Rates</div>
+    <div class="rc-rates" style="grid-template-columns:repeat(${1 + Object.values(ratePkgs).filter(v => v > 0).length},1fr)">
+      ${rateHourly ? `
+      <div class="rc-rate-cell">
+        <div class="rc-rate-type">Hourly Rate</div>
+        <div class="rc-rate-price">${esc(fmtCurrency(rateHourly))}</div>
+      </div>` : ''}
+      ${Object.entries(ratePkgs).filter(([_, v]) => v > 0).map(([k, v]) => `
+      <div class="rc-rate-cell">
+        <div class="rc-rate-type">${esc(k.toUpperCase())} Shoot</div>
+        <div class="rc-rate-price">${esc(fmtCurrency(v))}</div>
+      </div>`).join('')}
     </div>` : ''}
-    ${Object.entries(ratePkgs).filter(([_, v]) => v > 0).map(([k, v]) => `
-    <div class="rate-cell">
-      <div class="rate-type">${k.toUpperCase()} Shoot</div>
-      <div class="rate-price">${esc(fmtCurrency(v))}</div>
-    </div>`).join('')}
-  </div>` : ''}
 
-  ${rates.length > 0 ? `
-  <div class="section-label">Standard Rates</div>
-  <div class="rates-grid" style="grid-template-columns:repeat(${Math.min(rates.length,4)},1fr)">
-    ${rates.map(r => `
-    <div class="rate-cell">
-      <div class="rate-type">${esc(r.label)}</div>
-      <div class="rate-price">${esc(fmtCurrency(r.amount))}</div>
-      ${r.note ? `<div class="rate-note">${esc(r.note)}</div>` : ''}
-    </div>`).join('')}
-  </div>` : ''}
+    ${rates.length > 0 ? `
+    <div class="rc-section-label">Standard Rates</div>
+    <div class="rc-rates" style="grid-template-columns:repeat(${Math.min(rates.length, 3)},1fr)">
+      ${rates.map(r => `
+      <div class="rc-rate-cell">
+        <div class="rc-rate-type">${esc(r.label)}</div>
+        <div class="rc-rate-price">${esc(fmtCurrency(r.amount))}</div>
+        ${r.note ? `<div class="rc-rate-note">${esc(r.note)}</div>` : ''}
+      </div>`).join('')}
+    </div>` : ''}
 
-  ${packages.length > 0 ? `
-  <div class="section-label">Packages</div>
-  <div class="packages-list">
-    ${packages.map(p => `
-    <div class="pkg-row${p.highlight ? ' highlight' : ''}">
-      <div>
-        <div class="pkg-name">${esc(p.name)}</div>
-        ${p.description ? `<div class="pkg-desc">${esc(p.description.replace(/\n/g,' · '))}</div>` : ''}
+    ${packages.length > 0 ? `
+    <div class="rc-section-label">Packages</div>
+    <div class="rc-packages">
+      ${packages.map(p => `
+      <div class="rc-pkg${p.highlight ? ' highlight' : ''}">
+        <div>
+          <div class="rc-pkg__name">${esc(p.name)}</div>
+          ${p.description ? `<div class="rc-pkg__desc">${esc(p.description.replace(/\n/g, ' · '))}</div>` : ''}
+        </div>
+        <div class="rc-pkg__price">${esc(p.price)}</div>
+      </div>`).join('')}
+    </div>` : ''}
+
+    ${!rateHourly && !Object.values(ratePkgs).some(v => v > 0) && !rates.length && !packages.length ? `
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:3rem 0;">
+      <p style="font-size:0.8rem;color:rgba(10,10,10,0.3);text-align:center;max-width:24ch;line-height:1.8;">Rates not yet published.<br>Contact for pricing.</p>
+    </div>` : ''}
+
+    <div class="rc-doc-footer">
+      <div class="rc-contact">
+        ${contactEmail ? `<div>${esc(contactEmail)}</div>` : ''}
+        ${creator.handle ? `<div>${esc(creator.handle)}</div>` : ''}
       </div>
-      <div class="pkg-price">${esc(p.price)}</div>
-    </div>`).join('')}
-  </div>` : ''}
-
-  <div class="footer">
-    <div class="footer-name">${firstName} ${lastName}</div>
-    <div class="footer-contact">${esc(creator.email || creator.contact?.email || '')}</div>
+      <div class="rc-credit">Generated by <span>CreatorHQ</span><br>${new Date().toLocaleDateString('en-ZA', { day:'2-digit', month:'short', year:'numeric', timeZone:'Africa/Johannesburg' })}</div>
+         </div>
   </div>
 </div>
+</div><!-- /.rc-viewer -->
 
 <div id="action-bar">
-  <button onclick="navigator.clipboard.writeText(window.location.href).then(()=>{this.textContent='Copied';setTimeout(()=>this.textContent='Copy Link',2000)})">Copy Link</button>
-  <div class="bar-divider"></div>
+  <button id="rc-copy-btn" onclick="navigator.clipboard.writeText(window.location.href).then(()=>{const b=document.getElementById('rc-copy-btn');const o=b.textContent;b.textContent='Copied';setTimeout(()=>b.textContent=o,2000)})">Copy Link</button>
+  ${isOwner ? `<div class="bar-divider"></div>
   <a href="/c/${esc(creator.id)}/edit?rate-card=1">Edit</a>
+  <div class="bar-divider"></div>
+  <a href="/c/${esc(creator.id)}/rate-card?as=visitor" title="See your rate card the way a visitor sees it">As Visitor</a>
+  <div class="bar-divider"></div>
+  <form method="post" action="/c/${esc(creator.id)}/signout" style="margin:0;padding:0;display:inline-flex;">
+    <button type="submit" title="Stop editing on this device" style="background:none;border:none;color:inherit;font:inherit;cursor:pointer;padding:0;">Sign out</button>
+  </form>` : ''}
   <div class="bar-divider"></div>
   <a href="/c/${esc(creator.id)}">← Full Kit</a>
   <div class="bar-divider"></div>
-  <button onclick="downloadPDF()">Download PDF</button>
+  <button id="rc-dl-btn" onclick="downloadRateCardPDF()">Download PDF</button>
 </div>
 
 ${renderNudge(creator)}
 
 <script>
-function downloadPDF(){
-  const bar=document.getElementById('action-bar');
-  bar.style.display='none';
-  html2pdf().set({
-    margin:0,filename:'${firstName}-${lastName}-RateCard.pdf',
-    image:{type:'jpeg',quality:0.98},
-    html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},
-    jsPDF:{unit:'mm',format:'a4',orientation:'portrait',compress:true}
-  }).from(document.body).save().then(()=>{bar.style.display='flex'});
+// Per the export skill: capture the fixed A4 div directly with html2canvas
+// + jsPDF. Do NOT use html2pdf().from(document.body) — that slices the full
+// scrollable body into arbitrary chunks. We capture #rc-page as one canvas.
+async function downloadRateCardPDF() {
+  const btn = document.getElementById('rc-dl-btn');
+  const bar = document.getElementById('action-bar');
+  btn.textContent = 'Generating…';
+  btn.disabled = true;
+  bar.style.display = 'none';
+
+  const { jsPDF } = window.jspdf;
+  const page = document.getElementById('rc-page');
+
+  // Force exact A4 dimensions + two-column grid for capture.
+  // Restore everything in the finally block regardless of error.
+  const prevW    = page.style.width;
+  const prevMinH = page.style.minHeight;
+  const prevGrid = page.style.gridTemplateColumns;
+  const prevBR   = page.style.borderRadius;
+  const prevBS   = page.style.boxShadow;
+  page.style.width               = '794px';
+  page.style.minHeight           = '1123px';
+  page.style.gridTemplateColumns = '260px 1fr';
+  page.style.borderRadius        = '0';
+  page.style.boxShadow           = 'none';
+
+  try {
+    const canvas = await html2canvas(page, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      width: 794,
+      height: 1123,
+      windowWidth: 794,
+      backgroundColor: '#f0ece4',
+    });
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.97);
+    const pdf = new jsPDF({ unit: 'px', format: [794, 1123], orientation: 'portrait' });
+    pdf.addImage(imgData, 'JPEG', 0, 0, 794, 1123);
+    pdf.save('${firstName.replace(/[^A-Za-z]/g, '')}-${lastName.replace(/[^A-Za-z]/g, '') || 'Creator'}-RateCard.pdf');
+  } finally {
+    page.style.width               = prevW;
+    page.style.minHeight           = prevMinH;
+    page.style.gridTemplateColumns = prevGrid;
+    page.style.borderRadius        = prevBR;
+    page.style.boxShadow           = prevBS;
+    bar.style.display = 'flex';
+    btn.textContent = 'Download PDF';
+    btn.disabled = false;
+  }
 }
 </script>
 </body>
@@ -2269,13 +3031,9 @@ export function renderFormHTML(creator = null, opts = {}) {
   </style>
 </head>
 <body>
-  ${renderSiteHeader({
-    current: 'form',
-    back: isEdit
-      ? { href: `/c/${esc(c.id)}`, label: 'Back to my kit' }
-      : { href: '/', label: 'Cancel' }
-  })}
+  ${renderSiteHeader({ current: 'form' })}
   <div class="wrap">
+    <a href="${isEdit ? `/c/${esc(c.id)}` : '/'}" style="display:inline-block;margin-top:24px;margin-bottom:24px;font-size:9pt;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);text-decoration:none;">← ${isEdit ? 'Back to my kit' : 'Cancel'}</a>
     <h1 class="display">${pageTitle}</h1>
     <p class="lede">${isRate
       ? 'A clean one-pager brands can read in 30 seconds. Platforms, rates, contact. Nothing else.'
@@ -2288,12 +3046,12 @@ export function renderFormHTML(creator = null, opts = {}) {
         <legend>Identity</legend>
         <div class="row">
           <div>
-            <label>Full name</label>
-            <input name="name" type="text" required value="${esc(nameStr)}" />
+            <label>First name</label>
+            <input name="name_first" type="text" required placeholder="e.g. Khanyisile" value="${esc(c.nameDetails?.first || nameStr.split(' ')[0] || '')}" />
           </div>
           <div>
-            <label>Primary handle</label>
-            <input name="handle" type="text" placeholder="@yourname" value="${esc(c.handle)}" />
+            <label>Surname</label>
+            <input name="name_last" type="text" required placeholder="e.g. Khumalo" value="${esc(c.nameDetails?.last || nameStr.split(' ').slice(1).join(' ') || '')}" />
           </div>
         </div>
         <div class="row">
@@ -2304,6 +3062,12 @@ export function renderFormHTML(creator = null, opts = {}) {
           <div>
             <label>Location</label>
             <input name="location" type="text" placeholder="e.g. Johannesburg, London" value="${esc(c.location)}" />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>Primary handle <span style="text-transform:none;letter-spacing:0;font-weight:400;color:rgba(10,10,10,0.35);">(optional)</span></label>
+            <input name="handle" type="text" placeholder="@yourname" value="${esc(c.handle)}" />
           </div>
         </div>
         <label>Tagline</label>
@@ -2568,11 +3332,59 @@ export function renderFormHTML(creator = null, opts = {}) {
       </fieldset>
       ` : ''}
 
+      ${!isEdit ? `
+      <!-- Soft sign-in section. Recovery contact + DOB so the creator can edit
+           this kit later from a different device. We hash both fields server-side
+           with a per-record salt, never store the raw values. Honeypot + min-fill
+           timestamp included for bot protection. -->
+      <fieldset>
+        <legend>Recovery</legend>
+        <p class="hint" style="margin-top:0;margin-bottom:18px;">So you can edit this kit later from a different phone or laptop. We hash both fields before storing. Your raw details never persist.</p>
+
+        <label>Your contact <span class="hint">· email or SA cell</span></label>
+        <input name="recovery_contact" type="text" inputmode="email" autocomplete="email" placeholder="you@example.com  or  0821234567" required />
+
+        <label style="margin-top:18px;">Your date of birth <span class="hint">· DD / MM / YYYY</span></label>
+        <div class="dob-row" style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:8px;">
+          <input name="recovery_dob_d" type="text" inputmode="numeric" pattern="\\d*" maxlength="2" placeholder="DD" required aria-label="Day" />
+          <input name="recovery_dob_m" type="text" inputmode="numeric" pattern="\\d*" maxlength="2" placeholder="MM" required aria-label="Month" />
+          <input name="recovery_dob_y" type="text" inputmode="numeric" pattern="\\d*" maxlength="4" placeholder="YYYY" required aria-label="Year" />
+        </div>
+
+        <!-- Honeypot: hidden from humans, irresistible to bots. -->
+        <input name="hp_check" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;top:-9999px;opacity:0;pointer-events:none;" />
+        <!-- Form-rendered timestamp for the min-fill-time check. Set on render. -->
+        <input name="form_rendered_at" type="hidden" value="${Date.now()}" />
+      </fieldset>
+      ` : ''}
+
       <div style="margin-top:32px;">
         <button class="primary" type="submit">${submitLabel}</button>
       </div>
     </form>
   </div>
+
+  <script>
+    // Auto-advance focus across the DOB split fields. When the user fills DD
+    // (2 chars), focus moves to MM. When MM is filled, focus moves to YYYY.
+    // Backspace at the start of a field jumps back to the previous one.
+    (function() {
+      var dobInputs = document.querySelectorAll('input[name^="recovery_dob_"]');
+      if (!dobInputs.length) return;
+      dobInputs.forEach(function(el, i) {
+        el.addEventListener('input', function(e) {
+          if (el.value.length >= el.maxLength && i < dobInputs.length - 1) {
+            dobInputs[i + 1].focus();
+          }
+        });
+        el.addEventListener('keydown', function(e) {
+          if (e.key === 'Backspace' && el.value === '' && i > 0) {
+            dobInputs[i - 1].focus();
+          }
+        });
+      });
+    })();
+  </script>
 
   <script>
     function addRate(label = '', amount = '') {
@@ -2956,6 +3768,9 @@ export function renderLandingHTML() {
       border: 1px solid rgba(255,255,255,0.18);
     }
     .hero__cta--ghost:hover { background: rgba(255,255,255,0.04); opacity: 1; }
+    /* "Calculate my rate" tertiary link — Mongezi flagged it as invisible.
+       Now: paper-coloured, underlined with offset, same letter-spacing as
+       the CTAs. Reads as a deliberate side-door, not a footnote. */
     .hero__calc {
       display: inline-flex;
       align-items: center;
@@ -2964,11 +3779,13 @@ export function renderLandingHTML() {
       font-weight: 400;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: rgba(255,255,255,0.35);
-      text-decoration: none;
-      transition: color 0.2s;
+      color: #f8f5f0;
+      text-decoration: underline;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 5px;
+      transition: opacity 0.2s;
     }
-    .hero__calc:hover { color: rgba(255,255,255,0.75); }
+    .hero__calc:hover { opacity: 0.7; }
 
     .proof {
       position: relative;
@@ -3051,7 +3868,7 @@ export function renderLandingHTML() {
   </style>
 </head>
 <body>
-  ${renderSiteHeader({ current: 'landing', theme: 'on-dark' })}
+  ${renderSiteHeader({ current: 'landing' })}
 
   <main class="hero">
     <div class="hero__copy">
@@ -3106,9 +3923,32 @@ export function renderLandingHTML() {
 
   ${renderTrustStrip()}
 
+  <!-- Closing CTA section. Confident closing move after a visitor has read
+       the testimonial + proof. Repeats the hero buttons because by the time
+       someone reaches here they're warm and ready. Italic Cormorant headline
+       in the same register as the rest. -->
+  <section class="close-cta" style="padding:6rem 2rem; text-align:center; border-top:1px solid rgba(248,245,240,0.06);">
+    <h2 style="font-family:'Cormorant Garamond', serif; font-style:italic; font-weight:300; font-size:clamp(2.2rem, 5vw, 3.4rem); color:#f8f5f0; margin-bottom:2.5rem; letter-spacing:-0.01em; line-height:1.1;">Build yours today. In minutes.</h2>
+    <div class="hero__cta-row" style="justify-content:center; margin-bottom:2rem;">
+      <a href="/new?rate-card=1" class="hero__cta">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Get my rate card
+      </a>
+      <a href="/new" class="hero__cta hero__cta--ghost">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Build my media kit
+      </a>
+    </div>
+    <a href="/calculator" class="hero__calc">or calculate my rate →</a>
+  </section>
+
   <footer class="foot">
     <div class="foot__credit">Built in Johannesburg, for African creators.</div>
-    <a href="/new" class="foot__link">Get started →</a>
+    <div style="display:flex; gap:1.25rem; font-family:'Instrument Sans',sans-serif; font-size:0.6rem; letter-spacing:0.18em; text-transform:uppercase;">
+      <a href="/about" style="color:rgba(248,245,240,0.4); text-decoration:none;">About</a>
+      <a href="/privacy" style="color:rgba(248,245,240,0.4); text-decoration:none;">Privacy</a>
+      <a href="/terms" style="color:rgba(248,245,240,0.4); text-decoration:none;">Terms</a>
+    </div>
   </footer>
 </body>
 </html>`;
@@ -3167,7 +4007,7 @@ export function renderCalculatorHTML() {
   </style>
 </head>
 <body>
-  ${renderSiteHeader({ current: 'calculator', back: { href: '/', label: 'Home' } })}
+  ${renderSiteHeader({ current: 'calculator' })}
   <div class="wrap">
     <div class="eyebrow">Rate Wizard</div>
     <h1 id="wiz-title">Step 1: <em>Metrics.</em></h1>
