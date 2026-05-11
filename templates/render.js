@@ -2959,7 +2959,7 @@ export function renderFormHTML(creator = null, opts = {}) {
     : (isRate ? '/new' : '/new?rate-card=1');
   const toggleLabel = isRate ? 'Need the full media kit? →' : 'Just want a rate card? →';
 
-  return `<!doctype html>
+  if (isEdit) { return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -3220,7 +3220,7 @@ export function renderFormHTML(creator = null, opts = {}) {
 
       <fieldset>
         <legend>Rates</legend>
-        <div class="hint" style="margin-top:0;margin-bottom:16px;">Label each deliverable clearly. Brands will read this line verbatim. Not sure what to charge? <a href="/calculator" style="color:var(--black);text-decoration:underline;">Try the rate calculator →</a></div>
+        <div class="hint" style="margin-top:0;margin-bottom:16px;">Label each deliverable clearly. Brands will read this line verbatim. Not sure what to charge? <a href="/calculator" target="_blank" rel="noopener" style="color:var(--black);text-decoration:underline;">Try the rate calculator →</a></div>
 
         <div id="rates">
           <div class="row" style="margin-bottom:1.5rem">
@@ -3465,6 +3465,566 @@ export function renderFormHTML(creator = null, opts = {}) {
       if (el) el.classList.toggle('visible');
     }
 
+  </script>
+</body>
+</html>`; } // end isEdit
+
+  // ── New creation: card-by-card wizard ──────────────────────────────────────
+  const totalSteps = isRate ? 5 : 8;
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CreatorHQ · ${isRate ? 'Get your rate card' : 'Build your media kit'}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    ${headCSS()}
+    body { padding: 0 0 88px; background: #fff; color: #0a0a0a; }
+
+    /* Progress */
+    #wiz-progress { height: 3px; background: var(--rule); position: sticky; top: 0; z-index: 10; }
+    #wiz-bar { height: 3px; background: var(--black); transition: width 0.25s ease; }
+    #wiz-meta { padding: 14px 24px 0; display: flex; justify-content: space-between; align-items: center; }
+    #wiz-step-label { font-size: 9pt; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+    #wiz-cancel { font-size: 9pt; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-decoration: none; }
+
+    /* Layout */
+    .wiz-wrap { padding: 36px 24px 0; max-width: 480px; margin: 0 auto; }
+    .form-step { display: none; }
+    .form-step.wiz-active { display: block; }
+
+    /* Typography */
+    .step-h { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 34pt; font-weight: 500; line-height: 1.05; margin-bottom: 10px; }
+    .step-sub { color: var(--muted); font-size: 11pt; margin-bottom: 32px; line-height: 1.5; }
+
+    /* Fields */
+    label { display: block; font-size: 9pt; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; margin-top: 22px; }
+    label:first-of-type { margin-top: 0; }
+    input[type=text], input[type=email], input[type=number], textarea {
+      width: 100%; padding: 14px 16px; border: 1px solid #d8d2ca;
+      background: #fff; font: inherit; font-size: 13pt; color: #0a0a0a;
+      border-radius: 2px; -webkit-appearance: none; appearance: none;
+    }
+    textarea { min-height: 80px; resize: vertical; }
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .row-2 label { margin-top: 0; }
+
+    /* Photo drop */
+    .photo-drop { border: 1px dashed #c0b8b0; border-radius: 2px; padding: 40px 24px; text-align: center; cursor: pointer; background: #faf8f5; position: relative; }
+    .photo-drop input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .photo-drop-label { font-size: 10pt; color: var(--muted); margin-top: 8px; }
+    #photo-preview-wrap { text-align: center; }
+    #photo-preview-img { width: 100px; height: 100px; object-fit: cover; border-radius: 2px; display: block; margin: 0 auto 10px; }
+    .photo-change-btn { font-size: 9pt; color: var(--muted); background: none; border: none; cursor: pointer; text-decoration: underline; font-family: inherit; }
+
+    /* Platform blocks */
+    .platform-block { margin-bottom: 32px; padding-bottom: 32px; border-bottom: 1px solid var(--rule); }
+    .platform-block:last-of-type { border-bottom: none; margin-bottom: 0; }
+    .platform-name { font-size: 9pt; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 600; color: var(--black); margin-bottom: 16px; }
+
+    /* Rate preview card */
+    #rate-preview { padding: 28px 20px; background: #faf8f5; border-radius: 2px; margin-bottom: 28px; text-align: center; }
+    .rate-range { display: flex; align-items: baseline; justify-content: center; gap: 10px; margin-bottom: 8px; }
+    .rate-num { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 44pt; font-weight: 500; line-height: 1; }
+    .rate-sep { color: var(--muted); font-size: 20pt; }
+    .rate-unit { font-size: 9pt; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .rate-caveat { font-size: 8pt; color: var(--muted); }
+
+    /* Bottom nav */
+    #wiz-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid var(--rule); padding: 14px 24px; display: flex; gap: 12px; align-items: center; z-index: 20; }
+    #btn-wiz-back { flex: 0 0 auto; background: transparent; border: 1px solid var(--rule); color: var(--muted); padding: 13px 18px; font: inherit; font-size: 10pt; border-radius: 2px; cursor: pointer; }
+    #btn-wiz-skip { flex: 1; background: transparent; border: none; color: var(--muted); font: inherit; font-size: 10pt; cursor: pointer; text-decoration: underline; text-align: center; }
+    #btn-wiz-next { flex: 2; background: var(--black); color: #fff; border: none; padding: 15px; font: inherit; font-size: 12pt; border-radius: 2px; cursor: pointer; letter-spacing: 0.02em; }
+
+    /* Misc */
+    .field-hint { font-size: 8pt; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+    .add-btn { margin-top: 12px; padding: 10px 14px; background: transparent; border: 1px solid var(--rule); font: inherit; font-size: 9pt; cursor: pointer; border-radius: 2px; width: 100%; }
+    .remove-btn { font-size: 8pt; color: var(--muted); background: none; border: none; cursor: pointer; text-decoration: underline; font-family: inherit; margin-top: 6px; }
+    .optional-badge { display: inline-block; font-size: 8pt; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--rule); padding: 2px 8px; border-radius: 2px; margin-left: 10px; vertical-align: middle; }
+  </style>
+</head>
+<body>
+  ${renderSiteHeader({ current: 'form' })}
+
+  <div id="wiz-progress"><div id="wiz-bar" style="width:${Math.round(1/totalSteps*100)}%"></div></div>
+  <div id="wiz-meta">
+    <span id="wiz-step-label">Step 1 of ${totalSteps}</span>
+    <a href="/" id="wiz-cancel">Cancel</a>
+  </div>
+
+  <div class="wiz-wrap">
+    <form action="/create" method="post" enctype="multipart/form-data" id="wiz-form">
+      <input type="hidden" name="mode" value="${mode}" />
+      <input name="hp_check" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;top:-9999px;opacity:0;pointer-events:none;" />
+      <input name="form_rendered_at" type="hidden" value="${Date.now()}" />
+
+      <!-- ── Step 1: Photo + Identity ── -->
+      <div class="form-step wiz-active" data-step="1">
+        <h2 class="step-h">Start with your photo</h2>
+        <p class="step-sub">This goes on your rate card first. A clear headshot works best.</p>
+
+        <div class="photo-drop" id="photo-drop">
+          <div style="font-size:28px;margin-bottom:8px;">📷</div>
+          <div class="photo-drop-label">Tap to choose a photo</div>
+          <input name="photo" type="file" accept="image/*" id="photo-input" onchange="previewPhoto(this)" />
+        </div>
+        <div id="photo-preview-wrap" style="display:none;margin-top:16px;">
+          <img id="photo-preview-img" src="" alt="Preview" />
+          <button type="button" class="photo-change-btn" onclick="resetPhoto()">Choose different photo</button>
+        </div>
+
+        <label style="margin-top:28px;">First name</label>
+        <input name="name_first" type="text" required placeholder="e.g. Khanyisile" value="${esc(c.nameDetails?.first || nameStr.split(' ')[0] || '')}" />
+
+        <label>Surname</label>
+        <input name="name_last" type="text" required placeholder="e.g. Khumalo" value="${esc(c.nameDetails?.last || nameStr.split(' ').slice(1).join(' ') || '')}" />
+
+        <label>Handle <span style="text-transform:none;letter-spacing:0;font-weight:400;font-size:8pt;"> optional</span></label>
+        <input name="handle" type="text" placeholder="@yourname" value="${esc(c.handle)}" />
+
+        <label>Email</label>
+        <input name="email" type="email" required placeholder="you@example.com" value="${esc(contactEmail)}" />
+      </div>
+
+      <!-- ── Step 2: Platforms ── -->
+      <div class="form-step" data-step="2">
+        <h2 class="step-h">Your reach</h2>
+        <p class="step-sub">Organic stats only. Paid and boosted content doesn't count here.</p>
+
+        <div class="platform-block">
+          <div class="platform-name">Instagram</div>
+          <label>Handle</label>
+          <input name="ig_handle" type="text" placeholder="@yourhandle" value="${esc(ig.handle)}" />
+          <div class="row-2" style="margin-top:14px;">
+            <div>
+              <label>Followers</label>
+              <input name="ig_followers" type="number" min="0" placeholder="0" value="${ig.followers || ''}" oninput="updateRatePreview()" />
+            </div>
+            <div>
+              <label>Engagement %</label>
+              <input name="ig_engagement" type="number" step="0.1" min="0" placeholder="0.0" value="${ig.engagement || ''}" oninput="updateRatePreview()" />
+            </div>
+          </div>
+        </div>
+
+        <div class="platform-block">
+          <div class="platform-name">TikTok</div>
+          <label>Handle</label>
+          <input name="tt_handle" type="text" placeholder="@yourhandle" value="${esc(tt.handle)}" />
+          <div class="row-2" style="margin-top:14px;">
+            <div>
+              <label>Followers</label>
+              <input name="tt_followers" type="number" min="0" placeholder="0" value="${tt.followers || ''}" oninput="updateRatePreview()" />
+            </div>
+            <div>
+              <label>Engagement %</label>
+              <input name="tt_engagement" type="number" step="0.1" min="0" placeholder="0.0" value="${tt.engagement || ''}" oninput="updateRatePreview()" />
+            </div>
+          </div>
+        </div>
+
+        <div class="platform-block">
+          <div class="platform-name">YouTube</div>
+          <label>Channel handle</label>
+          <input name="yt_handle" type="text" placeholder="@yourchannel" value="${esc(yt.handle)}" />
+          <div class="row-2" style="margin-top:14px;">
+            <div>
+              <label>Subscribers</label>
+              <input name="yt_followers" type="number" min="0" placeholder="0" value="${yt.followers || ''}" oninput="updateRatePreview()" />
+            </div>
+            <div>
+              <label>Avg views / video</label>
+              <input name="yt_avg_views" type="number" min="0" placeholder="0" value="${yt.avgViews || ''}" oninput="updateRatePreview()" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Step 3: Rate preview + context ── -->
+      <div class="form-step" data-step="3">
+        <h2 class="step-h">What your work is worth</h2>
+        <p class="step-sub">Based on your stats. You can set your actual rates in the next step.</p>
+
+        <div id="rate-preview">
+          <p style="color:var(--muted);font-size:10pt;text-align:center;padding:20px 0;">Fill in platform stats on the previous step to see your range.</p>
+        </div>
+
+        <label>Niche / Category</label>
+        <input name="niche" type="text" placeholder="e.g. Fashion, Beauty, Lifestyle" value="${esc(c.niche)}" />
+
+        <label>Location</label>
+        <input name="location" type="text" placeholder="e.g. Johannesburg" value="${esc(c.location)}" />
+
+        <label>Tagline</label>
+        <input name="tagline" type="text" placeholder="One line that describes you" value="${esc(c.tagline)}" />
+
+        ${!isRate ? `
+        <label>Short bio</label>
+        <textarea name="bio" placeholder="Two or three sentences. Who you are, who you make for.">${esc(bioText)}</textarea>
+        ` : ''}
+      </div>
+
+      ${isRate ? `
+      <!-- ── Step 4 (rate card): Rates ── -->
+      <div class="form-step" data-step="4">
+        <h2 class="step-h">Set your rates</h2>
+        <p class="step-sub">The range above is a guide. Set what feels right for your work.</p>
+
+        <label>Hourly rate (R/hr)</label>
+        <input name="rate_hourly" type="number" min="0" placeholder="e.g. 500" value="${rateHourly}" />
+
+        <label>3hr package (R)</label>
+        <input name="rate_3h" type="number" min="0" placeholder="e.g. 1,200" value="${ratePkgs['3h'] || ''}" />
+
+        <label>4hr package (R)</label>
+        <input name="rate_4h" type="number" min="0" placeholder="e.g. 1,800" value="${ratePkgs['4h'] || ''}" />
+
+        <label>Full day 8hr (R)</label>
+        <input name="rate_8h" type="number" min="0" placeholder="e.g. 3,500" value="${ratePkgs['8h'] || ''}" />
+
+        <div id="rates" style="margin-top:8px;">
+          ${(c.customRates || []).map(r => `
+          <div style="display:grid;grid-template-columns:2fr 1fr auto;gap:10px;margin-top:10px;align-items:start;">
+            <input name="rate_label" type="text" placeholder="e.g. Branded Reel" value="${esc(r.label)}" />
+            <input name="rate_amount" type="number" min="0" value="${r.amount}" />
+            <button type="button" onclick="this.parentElement.remove()" style="padding:14px 10px;background:transparent;border:1px solid var(--rule);cursor:pointer;border-radius:2px;font:inherit;">×</button>
+            <input name="rate_note" type="text" placeholder="Note (optional)" value="${esc(r.note || '')}" style="grid-column:1 / -1;margin-top:-6px;" />
+          </div>`).join('')}
+        </div>
+        <button type="button" class="add-btn" onclick="addRate()">+ Add custom rate</button>
+      </div>
+      ` : `
+      <!-- ── Steps 4-7 (media kit): Optional depth ── -->
+
+      <!-- Step 4: Bio + Reach -->
+      <div class="form-step" data-step="4">
+        <h2 class="step-h">Tell your story <span class="optional-badge">Optional</span></h2>
+        <p class="step-sub">Enriches your media kit. Skip if you're not ready.</p>
+
+        <label>Reach stats <span style="font-size:8pt;letter-spacing:0;text-transform:none;font-weight:400;">Up to 3 headline numbers</span></label>
+        <div id="reach-list">
+          ${(reachArr.length ? reachArr : [{}, {}, {}]).slice(0, 3).map(r => `
+          <div class="row-2" style="margin-bottom:8px;">
+            <input name="reach_value" type="text" placeholder="e.g. 20M+" value="${esc(r.val || r.value || '')}" />
+            <input name="reach_label" type="text" placeholder="e.g. FB Monthly Reach" value="${esc(r.lbl || r.label || '')}" />
+          </div>`).join('')}
+        </div>
+
+        <div style="margin-top:24px;">
+          <label>Bio paragraphs</label>
+          <div id="bio-paragraphs">
+            ${(bioParagraphs.length ? bioParagraphs : ['']).map(p => `
+            <textarea name="bio_paragraph" placeholder="A paragraph of your story" style="margin-bottom:10px;">${esc(typeof p === 'string' ? p : '')}</textarea>`).join('')}
+          </div>
+          <button type="button" class="add-btn" onclick="addBioParagraph()">+ Add paragraph</button>
+        </div>
+      </div>
+
+      <!-- Step 5: Audience -->
+      <div class="form-step" data-step="5">
+        <h2 class="step-h">Who's watching <span class="optional-badge">Optional</span></h2>
+        <p class="step-sub">Brands use this to qualify audience fit. Skip if you don't have the data.</p>
+
+        <label>Gender split</label>
+        <div class="row-2">
+          <div>
+            <label>Male %</label>
+            <input name="audience_male" type="text" placeholder="40" value="${esc(audGender.male || '')}" />
+          </div>
+          <div>
+            <label>Female %</label>
+            <input name="audience_female" type="text" placeholder="60" value="${esc(audGender.female || '')}" />
+          </div>
+        </div>
+
+        <div id="age-list" style="margin-top:20px;">
+          <label>Age ranges</label>
+          ${(audAge.length ? audAge : [{}, {}]).slice(0, 4).map(a => `
+          <div class="row-2" style="margin-bottom:8px;">
+            <input name="audience_age_range" type="text" placeholder="e.g. 18-24" value="${esc(a.range || '')}" />
+            <input name="audience_age_pct" type="text" placeholder="%" value="${esc(a.percentage || '')}" />
+          </div>`).join('')}
+          <button type="button" class="add-btn" onclick="addAgeRange()">+ Add range</button>
+        </div>
+
+        <div id="loc-list" style="margin-top:20px;">
+          <label>Top locations</label>
+          ${(audLocs.length ? audLocs : [{}, {}, {}]).slice(0, 5).map(l => {
+            const locName = typeof l === 'string' ? l : (l.name || '');
+            const locPct  = typeof l === 'string' ? '' : (l.percentage || '');
+            return `
+          <div class="row-2" style="margin-bottom:8px;">
+            <input name="audience_location" type="text" placeholder="e.g. Gauteng" value="${esc(locName)}" />
+            <input name="audience_location_pct" type="text" placeholder="% (optional)" value="${esc(locPct)}" />
+          </div>`;
+          }).join('')}
+          <button type="button" class="add-btn" onclick="addLocation()">+ Add location</button>
+        </div>
+      </div>
+
+      <!-- Step 6: Brands + Work -->
+      <div class="form-step" data-step="6">
+        <h2 class="step-h">Your brand work <span class="optional-badge">Optional</span></h2>
+        <p class="step-sub">Justifies your rate in a brand meeting. Skip if you're just starting out.</p>
+
+        <label>Selected work</label>
+        <div id="works">
+          ${(c.workPreview && c.workPreview.length ? c.workPreview : [{}]).map(w => `
+          <div style="display:grid;grid-template-columns:1fr 2fr auto;gap:10px;margin-bottom:8px;align-items:start;">
+            <input name="work_brand" type="text" placeholder="Brand" value="${esc(w.brand || '')}" />
+            <input name="work_note" type="text" placeholder="What you did / the result" value="${esc(w.note || '')}" />
+            <button type="button" onclick="this.parentElement.remove()" style="padding:14px 10px;background:transparent;border:1px solid var(--rule);cursor:pointer;border-radius:2px;font:inherit;">×</button>
+          </div>`).join('')}
+        </div>
+        <button type="button" class="add-btn" onclick="addWork()">+ Add work</button>
+
+        <div id="brands-list" style="margin-top:28px;">
+          <label>Brands worked with</label>
+          ${(brandsArr.length ? brandsArr : [{}, {}]).slice(0, 8).map((b, i) => `
+          <div style="margin-bottom:14px;padding:14px;border:1px solid var(--rule);border-radius:2px;">
+            <div class="row-2">
+              <input name="brand_name" type="text" placeholder="Brand name" value="${esc(b.name || '')}" />
+              <input name="brand_category" type="text" placeholder="Category" value="${esc(b.category || '')}" />
+            </div>
+            <input name="brand_${i}_evidence_0" type="text" placeholder="Evidence link (optional)" value="${esc(b.evidence?.[0] || '')}" style="margin-top:8px;" />
+            <button type="button" onclick="this.parentElement.remove()" class="remove-btn">Remove</button>
+          </div>`).join('')}
+          <button type="button" class="add-btn" onclick="addBrand()">+ Add brand</button>
+        </div>
+      </div>
+
+      <!-- Step 7: Packages + Rates + Contact -->
+      <div class="form-step" data-step="7">
+        <h2 class="step-h">Packages and rates <span class="optional-badge">Optional</span></h2>
+        <p class="step-sub">Structured offerings and custom rates. Skip if you prefer to discuss on enquiry.</p>
+
+        <div id="packages-list">
+          ${(packagesArr.length ? packagesArr : [{}, {}]).slice(0, 3).map((p, i) => `
+          <div style="margin-bottom:14px;padding:14px;border:1px solid var(--rule);border-radius:2px;">
+            <div class="row-2">
+              <div>
+                <label>Package name</label>
+                <input name="package_name" type="text" placeholder="e.g. Basic Campaign" value="${esc(p.name || '')}" />
+              </div>
+              <div>
+                <label>Price</label>
+                <input name="package_price" type="text" placeholder="e.g. R50,000" value="${esc(p.price || '')}" />
+              </div>
+            </div>
+            <label>Description</label>
+            <textarea name="package_desc" placeholder="What's included. One bullet per line." style="min-height:60px;">${esc(p.description || '')}</textarea>
+            <label style="display:inline-flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:9pt;margin-top:6px;">
+              <input name="package_highlight" type="checkbox" value="${i}" ${p.highlight ? 'checked' : ''} />
+              Highlight this package
+            </label>
+          </div>`).join('')}
+        </div>
+
+        <label style="margin-top:24px;">Hourly rate (R/hr)</label>
+        <input name="rate_hourly" type="number" min="0" placeholder="e.g. 500" value="${rateHourly}" />
+
+        <div id="rates" style="margin-top:8px;">
+          ${(c.customRates || []).map(r => `
+          <div style="display:grid;grid-template-columns:2fr 1fr auto;gap:10px;margin-top:10px;align-items:start;">
+            <input name="rate_label" type="text" value="${esc(r.label)}" />
+            <input name="rate_amount" type="number" min="0" value="${r.amount}" />
+            <button type="button" onclick="this.parentElement.remove()" style="padding:14px 10px;background:transparent;border:1px solid var(--rule);cursor:pointer;border-radius:2px;font:inherit;">×</button>
+          </div>`).join('')}
+          <button type="button" class="add-btn" onclick="addRate()">+ Add custom rate</button>
+        </div>
+
+        <label style="margin-top:24px;">Contact note</label>
+        <textarea name="contact_note" placeholder="For campaign briefs and partnership proposals...">${esc(contactNote)}</textarea>
+      </div>
+      `}
+
+      <!-- ── Final step: Recovery ── -->
+      <div class="form-step" data-step="${totalSteps}">
+        <h2 class="step-h">You're almost there.</h2>
+        <p class="step-sub">Save your access so you can edit this ${isRate ? 'rate card' : 'kit'} from any device. We hash both fields before storing — your raw details never persist.</p>
+
+        <label>Your contact</label>
+        <input name="recovery_contact" type="text" inputmode="email" autocomplete="email" placeholder="you@example.com or 0821234567" required />
+
+        <label style="margin-top:22px;">Date of birth</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:8px;">
+          <input name="recovery_dob_d" type="text" inputmode="numeric" pattern="\\d*" maxlength="2" placeholder="DD" required aria-label="Day" />
+          <input name="recovery_dob_m" type="text" inputmode="numeric" pattern="\\d*" maxlength="2" placeholder="MM" required aria-label="Month" />
+          <input name="recovery_dob_y" type="text" inputmode="numeric" pattern="\\d*" maxlength="4" placeholder="YYYY" required aria-label="Year" />
+        </div>
+
+        <button type="submit" style="margin-top:32px;width:100%;background:var(--black);color:#fff;border:none;padding:18px;font:inherit;font-size:13pt;border-radius:2px;cursor:pointer;letter-spacing:0.03em;">${submitLabel} →</button>
+      </div>
+
+    </form>
+  </div>
+
+  <!-- Fixed bottom nav (hidden on final step — submit is in the step) -->
+  <nav id="wiz-nav" style="position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--rule);padding:14px 24px;display:flex;gap:12px;align-items:center;z-index:20;">
+    <button id="btn-wiz-back" type="button" onclick="wizBack()" style="flex:0 0 auto;background:transparent;border:1px solid var(--rule);color:var(--muted);padding:13px 18px;font:inherit;font-size:10pt;border-radius:2px;cursor:pointer;display:none;">← Back</button>
+    <button id="btn-wiz-skip" type="button" onclick="wizSkip()" style="flex:1;background:transparent;border:none;color:var(--muted);font:inherit;font-size:10pt;cursor:pointer;text-decoration:underline;text-align:center;display:none;">Skip</button>
+    <button id="btn-wiz-next" type="button" onclick="wizNext()" style="flex:2;background:var(--black);color:#fff;border:none;padding:15px;font:inherit;font-size:12pt;border-radius:2px;cursor:pointer;">Next →</button>
+  </nav>
+
+  <script>
+    // ── Wizard state ──────────────────────────────────────────────────────────
+    (function() {
+      var TOTAL = ${totalSteps};
+      var optional = ${isRate ? '[]' : '[4,5,6,7]'};
+      var cur = 1;
+
+      function show(n) {
+        document.querySelectorAll('.form-step').forEach(function(s) { s.classList.remove('wiz-active'); });
+        var step = document.querySelector('.form-step[data-step="' + n + '"]');
+        if (step) step.classList.add('wiz-active');
+        cur = n;
+
+        // Progress
+        document.getElementById('wiz-bar').style.width = (n / TOTAL * 100) + '%';
+        document.getElementById('wiz-step-label').textContent = 'Step ' + n + ' of ' + TOTAL;
+
+        // Back button
+        var bb = document.getElementById('btn-wiz-back');
+        bb.style.display = n > 1 ? '' : 'none';
+
+        // Skip button (optional steps only, not final)
+        var bs = document.getElementById('btn-wiz-skip');
+        bs.style.display = (optional.indexOf(n) !== -1 && n < TOTAL) ? '' : 'none';
+
+        // Next button (hidden on final step — submit button is inline)
+        var bn = document.getElementById('btn-wiz-next');
+        bn.style.display = n === TOTAL ? 'none' : '';
+
+        // Whole nav hidden on final step
+        var nav = document.getElementById('wiz-nav');
+        nav.style.display = n === TOTAL ? 'none' : '';
+
+        if (n === 3) updateRatePreview();
+        window.scrollTo(0, 0);
+      }
+
+      window.wizNext = function() { if (cur < TOTAL) show(cur + 1); };
+      window.wizBack = function() { if (cur > 1) show(cur - 1); };
+      window.wizSkip = function() { if (cur < TOTAL) show(cur + 1); };
+
+      show(1);
+    })();
+
+    // ── Live rate preview ─────────────────────────────────────────────────────
+    function updateRatePreview() {
+      var igF = parseInt(document.querySelector('[name=ig_followers]')?.value) || 0;
+      var igE = parseFloat(document.querySelector('[name=ig_engagement]')?.value) || 0;
+      var ttF = parseInt(document.querySelector('[name=tt_followers]')?.value) || 0;
+      var ttE = parseFloat(document.querySelector('[name=tt_engagement]')?.value) || 0;
+      var ytV = parseInt(document.querySelector('[name=yt_avg_views]')?.value) || 0;
+
+      function em(e) { return e > 0 && e < 2 ? 0.8 : e >= 4.1 && e < 8 ? 1.2 : e >= 8 ? 1.5 : 1; }
+      function snap(n) { return Math.round(Math.max(100, n) / 50) * 50; }
+      function fmt(n) { return 'R' + n.toLocaleString('en-ZA'); }
+
+      var pl = [];
+      if (igF > 0) { var s = snap((igF/10000)*150*em(igE)); pl.push({ name:'Instagram', unit:'per post', s:s, lo:snap(s*.8), hi:snap(s*1.2) }); }
+      if (ttF > 0) { var s = snap((ttF/10000)*150*1.5*em(ttE)); pl.push({ name:'TikTok', unit:'per reel', s:s, lo:snap(s*.8), hi:snap(s*1.2) }); }
+      if (ytV > 0) { var s = snap((ytV/10000)*400*2.5); pl.push({ name:'YouTube', unit:'per dedicated video', s:s, lo:snap(s*.8), hi:snap(s*1.2) }); }
+
+      var el = document.getElementById('rate-preview');
+      if (!el) return;
+      if (!pl.length) {
+        el.innerHTML = '<p style="color:var(--muted);font-size:10pt;text-align:center;padding:20px 0;">Go back and fill in your platform stats to see your range.</p>';
+        return;
+      }
+      var lead = pl.reduce(function(b,p) { return p.s > b.s ? p : b; }, pl[0]);
+      el.innerHTML =
+        '<div class="rate-range"><span class="rate-num">' + fmt(lead.lo) + '</span>' +
+        '<span class="rate-sep">–</span>' +
+        '<span class="rate-num">' + fmt(lead.hi) + '</span></div>' +
+        '<div class="rate-unit">' + lead.unit + ' · ' + lead.name + '</div>' +
+        '<div class="rate-caveat">Organic reach only. Paid content excluded.</div>';
+    }
+
+    // ── Photo preview ─────────────────────────────────────────────────────────
+    function previewPhoto(input) {
+      if (!input.files || !input.files[0]) return;
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('photo-preview-img').src = e.target.result;
+        document.getElementById('photo-drop').style.display = 'none';
+        document.getElementById('photo-preview-wrap').style.display = 'block';
+      };
+      reader.readAsDataURL(input.files[0]);
+    }
+    function resetPhoto() {
+      document.getElementById('photo-input').value = '';
+      document.getElementById('photo-preview-img').src = '';
+      document.getElementById('photo-drop').style.display = '';
+      document.getElementById('photo-preview-wrap').style.display = 'none';
+    }
+
+    // ── DOB auto-advance ──────────────────────────────────────────────────────
+    (function() {
+      var dob = document.querySelectorAll('input[name^="recovery_dob_"]');
+      dob.forEach(function(el, i) {
+        el.addEventListener('input', function() { if (el.value.length >= el.maxLength && i < dob.length-1) dob[i+1].focus(); });
+        el.addEventListener('keydown', function(e) { if (e.key === 'Backspace' && el.value === '' && i > 0) dob[i-1].focus(); });
+      });
+    })();
+
+    // ── Field helpers ─────────────────────────────────────────────────────────
+    function addRate() {
+      var wrap = document.getElementById('rates');
+      var row = document.createElement('div');
+      row.style.cssText = 'display:grid;grid-template-columns:2fr 1fr auto;gap:10px;margin-top:10px;align-items:start;';
+      row.innerHTML = '<input name="rate_label" type="text" placeholder="e.g. TikTok Reel" />' +
+        '<input name="rate_amount" type="number" min="0" placeholder="Amount" />' +
+        '<button type="button" onclick="this.parentElement.remove()" style="padding:14px 10px;background:transparent;border:1px solid var(--rule);cursor:pointer;border-radius:2px;font:inherit;">×</button>' +
+        '<input name="rate_note" type="text" placeholder="Note (optional)" style="grid-column:1 / -1;margin-top:-6px;" />';
+      wrap.insertBefore(row, wrap.querySelector('.add-btn'));
+    }
+    function addWork() {
+      var wrap = document.getElementById('works');
+      var row = document.createElement('div');
+      row.style.cssText = 'display:grid;grid-template-columns:1fr 2fr auto;gap:10px;margin-bottom:8px;align-items:start;';
+      row.innerHTML = '<input name="work_brand" type="text" placeholder="Brand" />' +
+        '<input name="work_note" type="text" placeholder="What you did / the result" />' +
+        '<button type="button" onclick="this.parentElement.remove()" style="padding:14px 10px;background:transparent;border:1px solid var(--rule);cursor:pointer;border-radius:2px;font:inherit;">×</button>';
+      wrap.appendChild(row);
+    }
+    function addBioParagraph() {
+      var wrap = document.getElementById('bio-paragraphs');
+      if (!wrap) return;
+      var t = document.createElement('textarea');
+      t.name = 'bio_paragraph'; t.placeholder = 'A paragraph of your story';
+      t.style.cssText = 'margin-bottom:10px;min-height:80px;';
+      wrap.appendChild(t);
+    }
+    function addAgeRange() {
+      var wrap = document.getElementById('age-list');
+      if (!wrap) return;
+      var row = document.createElement('div');
+      row.className = 'row-2'; row.style.marginBottom = '8px';
+      row.innerHTML = '<input name="audience_age_range" type="text" placeholder="e.g. 25-34" /><input name="audience_age_pct" type="text" placeholder="%" />';
+      wrap.insertBefore(row, wrap.querySelector('.add-btn'));
+    }
+    function addLocation() {
+      var wrap = document.getElementById('loc-list');
+      if (!wrap) return;
+      var row = document.createElement('div');
+      row.className = 'row-2'; row.style.marginBottom = '8px';
+      row.innerHTML = '<input name="audience_location" type="text" placeholder="e.g. Cape Town" /><input name="audience_location_pct" type="text" placeholder="% (optional)" />';
+      wrap.insertBefore(row, wrap.querySelector('.add-btn'));
+    }
+    function addBrand() {
+      var wrap = document.getElementById('brands-list');
+      if (!wrap) return;
+      var i = wrap.querySelectorAll('[name=brand_name]').length;
+      var div = document.createElement('div');
+      div.style.cssText = 'margin-bottom:14px;padding:14px;border:1px solid var(--rule);border-radius:2px;';
+      div.innerHTML = '<div class="row-2"><input name="brand_name" type="text" placeholder="Brand name" /><input name="brand_category" type="text" placeholder="Category" /></div>' +
+        '<input name="brand_' + i + '_evidence_0" type="text" placeholder="Evidence link (optional)" style="margin-top:8px;" />' +
+        '<button type="button" onclick="this.parentElement.remove()" class="remove-btn">Remove</button>';
+      wrap.insertBefore(div, wrap.querySelector('.add-btn'));
+    }
   </script>
 </body>
 </html>`;
