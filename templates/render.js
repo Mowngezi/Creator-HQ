@@ -1350,8 +1350,8 @@ export function renderCardHTML(creator, { forPDF = false, justCreated = false, j
       .wrap { padding: 0 1.25rem; }
 
       /* ── Hero ── */
-      .hero { grid-template-columns: 1fr; }
-      .hero-photo-side { height: 75vw; min-height: 300px; }
+      .hero { grid-template-columns: 1fr; min-height: 0; }
+      .hero-photo-side { height: auto; aspect-ratio: 4/5; min-height: 0; }
       .hero-text { padding: 2rem 1.5rem 3rem; min-height: auto; }
       .hero-name { font-size: 2.8rem; }
       .hero-reach { gap: 1.5rem; flex-wrap: wrap; }
