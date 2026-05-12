@@ -1809,6 +1809,15 @@ export function renderPDFHTML(creator, photoBase64 = null) {
 
   const photoSrc = photoBase64 || (creator.photo?.url ? esc(creator.photo.url) : '');
 
+  // Paper-first content limits — PDF is a teaser, not a transcript
+  const bioShort = (() => {
+    const full = bioParagraphs.join(' ');
+    return full.length > 400 ? full.slice(0, 400) + '…' : full;
+  })();
+  const brandsLine  = brands.slice(0, 5).map(b => esc(b.brand)).join(' · ');
+  const ratesGrid   = rates.slice(0, 4);
+  const packagesShort = packages.slice(0, 2);
+
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -1958,15 +1967,49 @@ export function renderPDFHTML(creator, photoBase64 = null) {
       color: rgba(255,255,255,0.2);
     }
 
-    /* ── PAGE 2: BIO (left) + AUDIENCE + BRANDS (right) ── */
-    .p2-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      height: 1123px;
-      background: var(--paper);
+    /* ── PAGE 2: PAPER-FIRST TWO-COLUMN ── */
+    /* Page 2 is a flex column so the body fills the gap between quote and footer */
+    .page.p2 { display: flex; flex-direction: column; background: var(--paper); }
+
+    /* Pull-quote header zone */
+    .p2-quote {
+      padding: 24px 48px 20px;
+      border-bottom: 1px solid var(--line);
+      flex-shrink: 0;
     }
-    .p2-bio {
-      padding: 52px 36px 52px 48px;
+    .p2-tagline {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 28pt;
+      font-weight: 300;
+      line-height: 1.05;
+      color: var(--deep);
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .p2-tagline em { font-style: italic; color: var(--dusk); }
+    .p2-quote-roles {
+      margin-top: 7px;
+      font-size: 6pt;
+      font-weight: 400;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--smoke);
+    }
+
+    /* Two-column body — fills remaining height */
+    .p2-body {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 54% 46%;
+      overflow: hidden;
+    }
+
+    /* Left column: bio + pillars + brands */
+    .p2-left {
+      padding: 26px 30px 24px 48px;
       border-right: 1px solid var(--line);
       display: flex;
       flex-direction: column;
@@ -1978,31 +2021,25 @@ export function renderPDFHTML(creator, photoBase64 = null) {
       letter-spacing: 0.3em;
       text-transform: uppercase;
       color: var(--smoke);
-      margin-bottom: 20px;
+      margin-bottom: 12px;
     }
-    .p2-headline {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 40pt;
-      font-weight: 300;
-      line-height: 0.98;
-      color: var(--deep);
-      margin-bottom: 22px;
+    .p2-bio-text {
+      font-size: 8pt;
+      color: var(--dusk);
+      line-height: 1.85;
+      overflow: hidden;
     }
-    .p2-headline em { font-style: italic; color: var(--dusk); }
-    .p2-role { font-size: 7pt; color: var(--dusk); line-height: 1.85; }
-    .p2-roles { margin-bottom: 22px; }
-    .p2-bio-text p { font-size: 8pt; color: var(--dusk); line-height: 1.9; margin-bottom: 10px; }
-    .p2-pillars {
+    .p2-pillars-strip {
       margin-top: auto;
-      padding-top: 20px;
+      padding-top: 16px;
       border-top: 1px solid var(--line);
     }
     .p2-pillar {
-      padding: 8px 0;
-      border-bottom: 1px solid var(--line);
       display: grid;
-      grid-template-columns: 120px 1fr;
-      gap: 12px;
+      grid-template-columns: 108px 1fr;
+      gap: 10px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--line);
     }
     .p2-pillar__label {
       font-size: 5.5pt;
@@ -2010,19 +2047,29 @@ export function renderPDFHTML(creator, photoBase64 = null) {
       letter-spacing: 0.18em;
       text-transform: uppercase;
       color: var(--smoke);
-      padding-top: 2px;
+      padding-top: 1px;
     }
-    .p2-pillar__text { font-size: 7pt; color: var(--dusk); line-height: 1.7; }
+    .p2-pillar__text { font-size: 7pt; color: var(--dusk); line-height: 1.65; }
+    .p2-brands-line { margin-top: 14px; }
+    .p2-brands-lbl {
+      font-size: 5pt;
+      font-weight: 500;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--smoke);
+      margin-bottom: 4px;
+    }
+    .p2-brands-names { font-size: 6.5pt; color: var(--dusk); line-height: 1.7; }
 
-    /* Right column */
-    .p2-aud {
-      padding: 52px 48px 52px 36px;
+    /* Right column: audience + rates + packages */
+    .p2-right {
+      padding: 26px 48px 24px 30px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      gap: 16px;
     }
-    .p2-section { margin-bottom: 18px; }
-    .p2-section-label {
+    .p2-sect-lbl {
       font-size: 5.5pt;
       font-weight: 500;
       letter-spacing: 0.28em;
@@ -2032,190 +2079,108 @@ export function renderPDFHTML(creator, photoBase64 = null) {
     }
     .p2-region {
       font-family: 'Cormorant Garamond', serif;
+      font-size: 22pt;
+      font-weight: 300;
+      color: var(--deep);
+      line-height: 1;
+      margin-bottom: 5px;
+    }
+    .p2-loc-tags { display: flex; flex-wrap: wrap; gap: 3px; }
+    .p2-loc-tag {
+      font-size: 5.5pt;
+      color: var(--dusk);
+      border: 1px solid var(--smoke);
+      padding: 2px 7px;
+      border-radius: 100px;
+    }
+    .p2-age {
+      font-family: 'Cormorant Garamond', serif;
       font-size: 26pt;
       font-weight: 300;
       color: var(--deep);
       line-height: 1;
-      margin-bottom: 8px;
     }
-    .p2-tags { display: flex; flex-wrap: wrap; gap: 4px; }
-    .p2-tag {
-      font-size: 6pt;
-      color: var(--dusk);
-      border: 1px solid var(--smoke);
-      padding: 2px 9px;
+    .p2-age-lbl { font-size: 6pt; color: var(--dusk); margin-top: 2px; }
+    .p2-interest-tags { display: flex; flex-wrap: wrap; gap: 3px; }
+    .p2-interest-tag {
+      font-size: 5.5pt;
+      background: rgba(0,0,0,0.06);
+      color: var(--deep);
+      padding: 2px 7px;
       border-radius: 100px;
     }
-    .p2-tag--filled {
-      background: rgba(0,0,0,0.06);
-      border: none;
-      padding: 3px 9px;
+
+    /* Rates 2×2 */
+    .p2-rates-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--line);
+      flex-shrink: 0;
     }
-    .p2-age {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 32pt;
-      font-weight: 300;
-      color: var(--deep);
-      line-height: 1;
-      margin-top: 6px;
+    .p2-rate-cell {
+      background: var(--paper);
+      padding: 9px 11px;
     }
-    .p2-age-lbl { font-size: 6.5pt; color: var(--dusk); margin-top: 3px; margin-bottom: 14px; }
-    .p2-note { font-size: 7pt; color: var(--dusk); line-height: 1.8; margin-top: 8px; }
-    .p2-brands-head {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 15pt;
-      font-weight: 300;
-      color: var(--deep);
-      line-height: 1.1;
-      margin: 5px 0 10px;
-    }
-    .p2-brands-head em { font-style: italic; color: var(--dusk); }
-    .p2-brand-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 6px 0;
-      border-top: 1px solid var(--line);
-    }
-    .p2-brand-row:last-child { border-bottom: 1px solid var(--line); }
-    .p2-brand-name {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 10.5pt;
-      font-weight: 300;
-      color: var(--deep);
-    }
-    .p2-brand-cat {
+    .p2-rate-type {
       font-size: 5pt;
       font-weight: 500;
       letter-spacing: 0.2em;
       text-transform: uppercase;
-      color: var(--smoke);
-    }
-
-    /* ── PAGE 3: AUDIENCE + RATES ── */
-    .audience-section {
-      padding: 36px 48px;
-      background: var(--sand);
-    }
-    .aud-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0;
-      margin-top: 20px;
-    }
-    .aud-col { padding-right: 32px; }
-    .aud-col + .aud-col { padding-left: 32px; padding-right: 0; border-left: 1px solid var(--smoke); }
-    .aud-label {
-      font-size: 5.5pt;
-      font-weight: 500;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
       color: var(--dusk);
-      margin-bottom: 8px;
+      margin-bottom: 4px;
     }
-    .aud-big {
+    .p2-rate-price {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 20pt;
-      font-weight: 300;
-      color: var(--deep);
-      line-height: 1.2;
-      margin-bottom: 8px;
-    }
-    .aud-locs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; }
-    .aud-loc {
-      font-size: 6pt;
-      color: var(--dusk);
-      border: 1px solid var(--smoke);
-      padding: 2px 8px;
-      border-radius: 100px;
-    }
-    .aud-age {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 28pt;
+      font-size: 13pt;
       font-weight: 300;
       color: var(--deep);
       line-height: 1;
-      margin-top: 12px;
     }
-    .aud-age-sub { font-size: 6.5pt; color: var(--dusk); margin-top: 4px; }
-    .aud-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
-    .aud-tag {
-      font-size: 6pt;
-      background: rgba(0,0,0,0.07);
-      color: var(--deep);
-      padding: 2px 8px;
-      border-radius: 100px;
-    }
-    .aud-note { font-size: 7.5pt; color: var(--dusk); line-height: 1.75; margin-top: 14px; }
+    .p2-rate-note { font-size: 5pt; color: var(--smoke); margin-top: 2px; }
 
-    /* ── BRANDS + PACKAGES ── */
-    .brands-rates {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 48px;
-      padding: 32px 48px;
-      background: var(--paper);
-    }
-    .section-eyebrow {
-      font-size: 5.5pt;
-      font-weight: 500;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      color: var(--smoke);
-      margin-bottom: 8px;
-    }
-    .section-heading {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 16pt;
-      font-weight: 300;
-      color: var(--deep);
-      line-height: 1.1;
-      margin-bottom: 14px;
-    }
-    .section-heading em { font-style: italic; color: var(--dusk); }
-    .brand-row {
+    /* Packages compact */
+    .p2-pkg-stack {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 7px 0;
-      border-top: 1px solid var(--line);
+      flex-direction: column;
+      gap: 1px;
+      background: var(--line);
+      flex-shrink: 0;
     }
-    .brand-row:last-child { border-bottom: 1px solid var(--line); }
-    .brand-name { font-family: 'Cormorant Garamond', serif; font-size: 12pt; font-weight: 300; color: var(--deep); }
-    .brand-type { font-size: 5.5pt; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--smoke); }
-    .pkg-stack { display: flex; flex-direction: column; gap: 1px; background: var(--line); }
-    .pkg {
+    .p2-pkg {
       background: var(--paper);
-      padding: 12px 14px;
+      padding: 8px 11px;
       display: grid;
       grid-template-columns: 1fr auto;
       align-items: start;
-      gap: 8px;
+      gap: 6px;
     }
-    .pkg.highlight { background: var(--deep); }
-    .pkg__name { font-family: 'Cormorant Garamond', serif; font-size: 10pt; font-weight: 300; color: var(--deep); margin-bottom: 3px; }
-    .pkg.highlight .pkg__name { color: rgba(255,255,255,0.9); }
-    .pkg__desc { font-size: 6pt; color: var(--dusk); line-height: 1.7; }
-    .pkg.highlight .pkg__desc { color: rgba(255,255,255,0.4); }
-    .pkg__price { font-family: 'Cormorant Garamond', serif; font-size: 11pt; font-weight: 300; color: var(--deep); white-space: nowrap; text-align: right; }
-    .pkg.highlight .pkg__price { color: rgba(255,255,255,0.65); }
-
-    /* ── RATES GRID ── */
-    .rates-section { padding: 0 48px 24px; background: var(--sand); }
-    .rates-grid {
-      display: grid;
-      gap: 1px;
-      background: var(--smoke);
+    .p2-pkg.highlight { background: var(--deep); }
+    .p2-pkg__name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 9pt;
+      font-weight: 300;
+      color: var(--deep);
+      margin-bottom: 2px;
     }
-    .rate-cell { background: var(--sand); padding: 16px 14px; }
-    .rate-type { font-size: 5.5pt; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dusk); margin-bottom: 8px; }
-    .rate-price { font-family: 'Cormorant Garamond', serif; font-size: 16pt; font-weight: 300; color: var(--deep); line-height: 1; }
-    .rate-note { font-size: 5.5pt; color: var(--smoke); margin-top: 3px; }
+    .p2-pkg.highlight .p2-pkg__name { color: rgba(255,255,255,0.9); }
+    .p2-pkg__desc { font-size: 5.5pt; color: var(--dusk); line-height: 1.55; }
+    .p2-pkg.highlight .p2-pkg__desc { color: rgba(255,255,255,0.4); }
+    .p2-pkg__price {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 9.5pt;
+      font-weight: 300;
+      color: var(--deep);
+      white-space: nowrap;
+      text-align: right;
+    }
+    .p2-pkg.highlight .p2-pkg__price { color: rgba(255,255,255,0.65); }
 
-    /* ── FOOTER ── */
+    /* ── FOOTER (page 2) ── */
     .pdf-footer {
       background: var(--ink);
-      padding: 24px 48px 20px;
+      padding: 16px 48px 14px;
+      flex-shrink: 0;
     }
     .pdf-footer__inner {
       display: flex;
@@ -2224,18 +2189,18 @@ export function renderPDFHTML(creator, photoBase64 = null) {
     }
     .pdf-footer__name {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 18pt;
+      font-size: 15pt;
       font-weight: 300;
       color: var(--white);
       line-height: 1;
     }
     .pdf-footer__name em { font-style: italic; color: rgba(255,255,255,0.22); }
-    .pdf-footer__desc { font-size: 6pt; color: rgba(255,255,255,0.18); letter-spacing: 0.08em; margin-top: 6px; }
-    .pdf-footer__cta { font-family: 'Cormorant Garamond', serif; font-size: 9pt; font-style: italic; color: rgba(255,255,255,0.45); margin-bottom: 4px; text-align: right; }
-    .pdf-footer__contact { font-size: 6pt; color: rgba(255,255,255,0.2); text-align: right; }
+    .pdf-footer__desc { font-size: 5.5pt; color: rgba(255,255,255,0.18); letter-spacing: 0.08em; margin-top: 5px; }
+    .pdf-footer__cta { font-family: 'Cormorant Garamond', serif; font-size: 8.5pt; font-style: italic; color: rgba(255,255,255,0.45); margin-bottom: 3px; text-align: right; }
+    .pdf-footer__contact { font-size: 5.5pt; color: rgba(255,255,255,0.2); text-align: right; }
     .pdf-footer__bottom {
-      margin-top: 16px;
-      padding-top: 14px;
+      margin-top: 12px;
+      padding-top: 10px;
       border-top: 1px solid rgba(255,255,255,0.05);
       display: flex;
       justify-content: space-between;
@@ -2278,112 +2243,102 @@ export function renderPDFHTML(creator, photoBase64 = null) {
 </div>
 
 <!-- ═══════════════════════════════════════
-     PAGE 2 — BIO (left) + AUDIENCE + BRANDS (right)
+     PAGE 2 — PULL QUOTE + TWO-COLUMN BODY
 ════════════════════════════════════════ -->
-<div class="page">
-  <div class="p2-grid">
+<div class="page p2" id="page2">
 
-    <!-- ── LEFT: Bio ── -->
-    <div class="p2-bio">
+  <!-- Page header strip -->
+  <div class="page-header">
+    <span class="page-header__label">Media Kit · ${year}</span>
+    <span class="page-header__num">02 / 02</span>
+  </div>
+
+  <!-- Pull-quote zone: tagline as editorial anchor -->
+  <div class="p2-quote">
+    <div class="p2-tagline">${taglineDisplay || `${firstName} <em>${lastName}</em>`}</div>
+    ${roles.length ? `<div class="p2-quote-roles">${roles.slice(0, 2).map(r => esc(r)).join(' · ')}</div>` : ''}
+  </div>
+
+  <!-- Two-column body -->
+  <div class="p2-body">
+
+    <!-- ── LEFT: Bio + Pillars + Brands ── -->
+    <div class="p2-left">
       <div class="p2-eyebrow">About</div>
-      <div class="p2-headline">${taglineDisplay || `${firstName}<br><em>${lastName}</em>`}</div>
-      <div class="p2-roles">
-        ${roles.map(r => `<div class="p2-role">${esc(r)}</div>`).join('')}
-      </div>
-      <div class="p2-bio-text">
-        ${bioParagraphs.map(p => `<p>${esc(p)}</p>`).join('')}
-      </div>
+      <div class="p2-bio-text">${esc(bioShort)}</div>
+
       ${bioPillars.length > 0 ? `
-      <div class="p2-pillars">
-        ${bioPillars.map(p => `
+      <div class="p2-pillars-strip">
+        ${bioPillars.slice(0, 3).map(p => `
         <div class="p2-pillar">
           <div class="p2-pillar__label">${esc(p.label)}</div>
           <div class="p2-pillar__text">${esc(p.text)}</div>
         </div>`).join('')}
       </div>` : ''}
+
+      ${brandsLine ? `
+      <div class="p2-brands-line${bioPillars.length ? '' : ' p2-brands-mt'}">
+        <div class="p2-brands-lbl">Worked With</div>
+        <div class="p2-brands-names">${brandsLine}</div>
+      </div>` : ''}
     </div>
 
-    <!-- ── RIGHT: Audience + Brands ── -->
-    <div class="p2-aud">
+    <!-- ── RIGHT: Audience + Rates + Packages ── -->
+    <div class="p2-right">
+
       ${audience ? `
-      <div class="p2-section">
-        <div class="p2-section-label">Primary Region</div>
+      <div>
+        <div class="p2-sect-lbl">Audience</div>
         <div class="p2-region">${esc(audience.primaryRegion || 'South Africa')}</div>
-        ${locationTags.length ? `<div class="p2-tags">${locationTags.map(t => `<span class="p2-tag">${esc(t)}</span>`).join('')}</div>` : ''}
-      </div>
-      ${audience.ageGroup ? `
-      <div class="p2-section">
-        <div class="p2-age">${esc(audience.ageGroup)}</div>
-        <div class="p2-age-lbl">${esc(audience.ageLabel || '')}</div>
+        ${locationTags.length ? `<div class="p2-loc-tags">${locationTags.slice(0, 3).map(t => `<span class="p2-loc-tag">${esc(t)}</span>`).join('')}</div>` : ''}
+        ${audience.ageGroup ? `
+        <div style="margin-top:10px;">
+          <div class="p2-age">${esc(audience.ageGroup)}</div>
+          <div class="p2-age-lbl">${esc(audience.ageLabel || 'Core age group')}</div>
+        </div>` : ''}
+        ${audience.interests?.length ? `
+        <div class="p2-interest-tags" style="margin-top:8px;">
+          ${audience.interests.slice(0, 3).map(t => `<span class="p2-interest-tag">${esc(t)}</span>`).join('')}
+        </div>` : ''}
       </div>` : ''}
-      ${audience.interests?.length ? `
-      <div class="p2-section">
-        <div class="p2-section-label">Audience Interests</div>
-        <div class="p2-tags">${audience.interests.map(t => `<span class="p2-tag p2-tag--filled">${esc(t)}</span>`).join('')}</div>
-        ${audience.note ? `<div class="p2-note">${esc(audience.note)}</div>` : ''}
-      </div>` : ''}
-      ` : ''}
-      ${brands.length ? `
-      <div class="p2-section">
-        <div class="p2-section-label">Worked With</div>
-        <div class="p2-brands-head">Brands that<br><em>trust the culture.</em></div>
-        ${brands.slice(0, 5).map(b => `
-        <div class="p2-brand-row">
-          <span class="p2-brand-name">${esc(b.brand)}</span>
-          <span class="p2-brand-cat">${esc(b.note || '')}</span>
-        </div>`).join('')}
-      </div>` : ''}
-    </div>
 
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════
-     PAGE 3 — PACKAGES + RATES
-════════════════════════════════════════ -->
-<div class="page">
-  <div class="page-header">
-    <span class="page-header__label">Collaboration</span>
-    <span class="page-header__num">03 / 03</span>
-  </div>
-
-  <div class="brands-rates">
-    <div>
-      <div class="section-eyebrow">Collaboration Packages</div>
-      <div class="section-heading">What we can<br><em>build together.</em></div>
-      ${packages.length > 0 ? `
-      <div class="pkg-stack">
-        ${packages.map(p => `
-        <div class="pkg${p.highlight ? ' highlight' : ''}">
-          <div>
-            <div class="pkg__name">${esc(p.name)}</div>
-            ${p.description ? `<div class="pkg__desc">${esc(p.description.replace(/\n/g, ' · '))}</div>` : ''}
-          </div>
-          <div class="pkg__price">${esc(p.price)}</div>
-        </div>`).join('')}
+      ${ratesGrid.length ? `
+      <div>
+        <div class="p2-sect-lbl">Content Rates</div>
+        <div class="p2-rates-grid">
+          ${ratesGrid.map(r => `
+          <div class="p2-rate-cell">
+            <div class="p2-rate-type">${esc(r.label)}</div>
+            <div class="p2-rate-price">${esc(fmtCurrency(r.amount))}</div>
+            ${r.note ? `<div class="p2-rate-note">${esc(r.note)}</div>` : ''}
+          </div>`).join('')}
+        </div>
       </div>` : ''}
-    </div>
-    <div>
-      <div class="section-eyebrow">Content Rates</div>
-      <div class="section-heading">Per asset<br><em>pricing.</em></div>
-      ${rates.length > 0 ? `
-      <div class="pkg-stack">
-        ${rates.map(r => `
-        <div class="pkg">
-          <div>
-            <div class="pkg__name">${esc(r.label)}</div>
-          </div>
-          <div class="pkg__price">${esc(fmtCurrency(r.amount))}</div>
-        </div>`).join('')}
+
+      ${packagesShort.length ? `
+      <div>
+        <div class="p2-sect-lbl">Packages</div>
+        <div class="p2-pkg-stack">
+          ${packagesShort.map(p => `
+          <div class="p2-pkg${p.highlight ? ' highlight' : ''}">
+            <div>
+              <div class="p2-pkg__name">${esc(p.name)}</div>
+              ${p.description ? `<div class="p2-pkg__desc">${esc(p.description.replace(/\n/g, ' · ').slice(0, 80))}</div>` : ''}
+            </div>
+            <div class="p2-pkg__price">${esc(p.price)}</div>
+          </div>`).join('')}
+        </div>
       </div>` : ''}
+
     </div>
   </div>
 
+  <!-- Footer colophon -->
   <div class="pdf-footer">
     <div class="pdf-footer__inner">
       <div>
         <div class="pdf-footer__name">${firstName} <em>${lastName}</em></div>
-        <div class="pdf-footer__desc">${esc(role)}${location ? ` · ${esc(location)}, South Africa` : ''}</div>
+        <div class="pdf-footer__desc">${esc(role)}${location ? ` · ${esc(location)}` : ''}</div>
       </div>
       <div>
         <div class="pdf-footer__cta">Let's build something real.</div>
@@ -2392,18 +2347,29 @@ export function renderPDFHTML(creator, photoBase64 = null) {
     </div>
     <div class="pdf-footer__bottom">
       <div class="pdf-footer__credit">Generated by <span>CreatorHQ</span></div>
-      <div class="pdf-footer__date">${new Date().toLocaleDateString('en-ZA', { day:'2-digit', month:'short', year:'numeric', timeZone:'Africa/Johannesburg' })}</div>
+      <div class="pdf-footer__date" id="ts-text"></div>
     </div>
   </div>
+
 </div>
 
-<!-- Auto-download: html2canvas + jsPDF capture each .page div and assemble as multi-page PDF.
-     Per doctrine: fixed A4 divs captured individually, NOT html2pdf().from(body). -->
+<!-- Auto-download: html2canvas + jsPDF captures each fixed A4 .page div individually.
+     Per doctrine: fixed A4 divs, NOT html2pdf().from(body). Timestamp baked at download time. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 (async function generatePDF() {
-  // Wait for fonts before capture
+  // Bake timestamp at download time
+  const tsEl = document.getElementById('ts-text');
+  if (tsEl) {
+    tsEl.textContent = new Date().toLocaleString('en-ZA', {
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+      timeZone: 'Africa/Johannesburg'
+    });
+  }
+
+  // Wait for fonts and images before capture
   await document.fonts.ready;
 
   const { jsPDF } = window.jspdf;
@@ -2417,6 +2383,7 @@ export function renderPDFHTML(creator, photoBase64 = null) {
     const canvas = await html2canvas(pages[i], {
       scale: 2,
       useCORS: true,
+      allowTaint: false,
       logging: false,
       width: W,
       height: H,
@@ -3111,6 +3078,7 @@ export function renderFormHTML(creator = null, opts = {}) {
       margin-bottom: 12px;
     }
   </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
 </head>
 <body>
   ${renderSiteHeader({ current: 'form' })}
@@ -3122,7 +3090,7 @@ export function renderFormHTML(creator = null, opts = {}) {
       : 'The full story. Bio, audience, brands, packages, rates. Designed, shareable, PDF-ready.'}</p>
     <a href="${toggleHref}" style="display:inline-block;margin-bottom:32px;font-size:10pt;color:var(--muted);text-decoration:none;border-bottom:1px solid var(--rule);padding-bottom:2px;">${toggleLabel}</a>
 
-    <form action="${actionUrl}" method="post" enctype="multipart/form-data">
+    <form action="${actionUrl}" method="post" enctype="multipart/form-data" id="edit-form">
       <input type="hidden" name="mode" value="${mode}" />
       <fieldset>
         <legend>Identity</legend>
@@ -3199,9 +3167,13 @@ export function renderFormHTML(creator = null, opts = {}) {
 
       <fieldset>
         <legend>Cover photo</legend>
-        <div class="photo-spec">Slot: 365 × 1123 px · portrait, full bleed</div>
-        <input name="photo" type="file" accept="image/*" />
-        <div class="hint">If your image isn't exactly this ratio, it'll be centre-cropped to fit.</div>
+        <input name="photo" type="file" accept="image/*" id="edit-photo-input" onchange="editPreviewPhoto(this)" />
+        <div id="edit-crop-zone" style="display:none;margin-top:14px;">
+          <img id="edit-crop-img" src="" alt="Crop preview" style="max-width:100%;display:block;" />
+          <p style="font-size:8pt;color:var(--muted);margin-top:6px;">Drag to position · pinch or scroll to zoom</p>
+          <button type="button" onclick="editResetPhoto()" style="font-size:9pt;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;font-family:inherit;margin-top:6px;display:block;">Choose different photo</button>
+        </div>
+        <div class="hint" style="margin-top:8px;">Drag to frame your face — we'll crop it to a tall portrait for your cover.</div>
       </fieldset>
 
       <fieldset>
@@ -3547,7 +3519,50 @@ export function renderFormHTML(creator = null, opts = {}) {
       if (el) el.classList.toggle('visible');
     }
 
+    // ── Edit form photo crop ──────────────────────────────────────────────────
+    var _editCropper = null;
+    function editPreviewPhoto(input) {
+      if (!input.files || !input.files[0]) return;
+      var url = URL.createObjectURL(input.files[0]);
+      var cropImg = document.getElementById('edit-crop-img');
+      cropImg.src = url;
+      document.getElementById('edit-crop-zone').style.display = 'block';
+      if (_editCropper) _editCropper.destroy();
+      _editCropper = new Cropper(cropImg, {
+        aspectRatio: 365 / 1123,
+        viewMode: 1,
+        guides: false,
+        center: false,
+        background: false,
+        autoCropArea: 0.95,
+        movable: true,
+        zoomable: true,
+        rotatable: false,
+      });
+    }
+    function editResetPhoto() {
+      if (_editCropper) { _editCropper.destroy(); _editCropper = null; }
+      document.getElementById('edit-photo-input').value = '';
+      document.getElementById('edit-crop-img').src = '';
+      document.getElementById('edit-crop-zone').style.display = 'none';
+    }
+    document.getElementById('edit-form').addEventListener('submit', function(e) {
+      if (!_editCropper) return;
+      e.preventDefault();
+      var form = this;
+      var canvas = _editCropper.getCroppedCanvas({ width: 730, height: 2246, imageSmoothingQuality: 'high' });
+      canvas.toBlob(function(blob) {
+        try {
+          var dt = new DataTransfer();
+          dt.items.add(new File([blob], 'photo.jpg', { type: 'image/jpeg' }));
+          document.getElementById('edit-photo-input').files = dt.files;
+        } catch(err) {}
+        form.submit();
+      }, 'image/jpeg', 0.92);
+    });
+
   </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 </body>
 </html>`; } // end isEdit
 
@@ -3596,9 +3611,11 @@ export function renderFormHTML(creator = null, opts = {}) {
     .photo-drop { border: 1px dashed #c0b8b0; border-radius: 2px; padding: 40px 24px; text-align: center; cursor: pointer; background: #faf8f5; position: relative; }
     .photo-drop input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
     .photo-drop-label { font-size: 10pt; color: var(--muted); margin-top: 8px; }
-    #photo-preview-wrap { text-align: center; }
-    #photo-preview-img { width: 100px; height: 100px; object-fit: cover; border-radius: 2px; display: block; margin: 0 auto 10px; }
-    .photo-change-btn { font-size: 9pt; color: var(--muted); background: none; border: none; cursor: pointer; text-decoration: underline; font-family: inherit; }
+    /* Crop zone */
+    #crop-zone { margin-top: 16px; }
+    #crop-zone .cropper-container { border-radius: 2px; overflow: hidden; }
+    .crop-hint { font-size: 8pt; color: var(--muted); margin-top: 8px; text-align: center; line-height: 1.4; }
+    .photo-change-btn { font-size: 9pt; color: var(--muted); background: none; border: none; cursor: pointer; text-decoration: underline; font-family: inherit; display: block; margin: 10px auto 0; }
 
     /* Platform blocks */
     .platform-block { margin-bottom: 32px; padding-bottom: 32px; border-bottom: 1px solid var(--rule); }
@@ -3625,6 +3642,7 @@ export function renderFormHTML(creator = null, opts = {}) {
     .remove-btn { font-size: 8pt; color: var(--muted); background: none; border: none; cursor: pointer; text-decoration: underline; font-family: inherit; margin-top: 6px; }
     .optional-badge { display: inline-block; font-size: 8pt; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--rule); padding: 2px 8px; border-radius: 2px; margin-left: 10px; vertical-align: middle; }
   </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
 </head>
 <body>
   ${renderSiteHeader({ current: 'form' })}
@@ -3651,8 +3669,9 @@ export function renderFormHTML(creator = null, opts = {}) {
           <div class="photo-drop-label">Tap to choose a photo</div>
           <input name="photo" type="file" accept="image/*" id="photo-input" onchange="previewPhoto(this)" />
         </div>
-        <div id="photo-preview-wrap" style="display:none;margin-top:16px;">
-          <img id="photo-preview-img" src="" alt="Preview" />
+        <div id="crop-zone" style="display:none;">
+          <img id="crop-img" src="" alt="Crop preview" style="max-width:100%;display:block;" />
+          <p class="crop-hint">Drag to position · pinch or scroll to zoom</p>
           <button type="button" class="photo-change-btn" onclick="resetPhoto()">Choose different photo</button>
         </div>
 
@@ -4025,23 +4044,53 @@ export function renderFormHTML(creator = null, opts = {}) {
         '<div class="rate-caveat">Organic reach only. Paid content excluded.</div>';
     }
 
-    // ── Photo preview ─────────────────────────────────────────────────────────
+    // ── Photo crop (Cropper.js) ───────────────────────────────────────────────
+    var _cropper = null;
     function previewPhoto(input) {
       if (!input.files || !input.files[0]) return;
-      var reader = new FileReader();
-      reader.onload = function(e) {
-        document.getElementById('photo-preview-img').src = e.target.result;
-        document.getElementById('photo-drop').style.display = 'none';
-        document.getElementById('photo-preview-wrap').style.display = 'block';
-      };
-      reader.readAsDataURL(input.files[0]);
+      var url = URL.createObjectURL(input.files[0]);
+      var cropImg = document.getElementById('crop-img');
+      cropImg.src = url;
+      document.getElementById('photo-drop').style.display = 'none';
+      document.getElementById('crop-zone').style.display = 'block';
+      if (_cropper) _cropper.destroy();
+      _cropper = new Cropper(cropImg, {
+        aspectRatio: 365 / 1123,   // exact cover slot ratio
+        viewMode: 1,               // crop box stays inside image
+        guides: false,
+        center: false,
+        background: false,
+        autoCropArea: 0.95,
+        movable: true,
+        zoomable: true,
+        rotatable: false,
+      });
     }
     function resetPhoto() {
+      if (_cropper) { _cropper.destroy(); _cropper = null; }
       document.getElementById('photo-input').value = '';
-      document.getElementById('photo-preview-img').src = '';
+      document.getElementById('crop-img').src = '';
       document.getElementById('photo-drop').style.display = '';
-      document.getElementById('photo-preview-wrap').style.display = 'none';
+      document.getElementById('crop-zone').style.display = 'none';
     }
+
+    // Intercept submit: export cropped canvas → replace file input → re-submit
+    document.getElementById('wiz-form').addEventListener('submit', function(e) {
+      if (!_cropper) return; // no photo selected, pass through
+      e.preventDefault();
+      var form = this;
+      var canvas = _cropper.getCroppedCanvas({ width: 730, height: 2246, imageSmoothingQuality: 'high' });
+      canvas.toBlob(function(blob) {
+        try {
+          var dt = new DataTransfer();
+          dt.items.add(new File([blob], 'photo.jpg', { type: 'image/jpeg' }));
+          document.getElementById('photo-input').files = dt.files;
+        } catch(err) {
+          // DataTransfer not supported (rare) — submit without replacement
+        }
+        form.submit();
+      }, 'image/jpeg', 0.92);
+    });
 
     // ── DOB auto-advance ──────────────────────────────────────────────────────
     (function() {
@@ -4108,6 +4157,7 @@ export function renderFormHTML(creator = null, opts = {}) {
       wrap.insertBefore(div, wrap.querySelector('.add-btn'));
     }
   </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 </body>
 </html>`;
 }
