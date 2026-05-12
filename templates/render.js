@@ -1227,7 +1227,7 @@ export function renderCardHTML(creator, { forPDF = false, justCreated = false, j
     .wrap { max-width: 1080px; margin: 0 auto; padding: 0 2.5rem; }
 
     /* ── HERO ── */
-    .hero { position: relative; min-height: 100svh; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
+    .hero { position: relative; height: 100svh; min-height: 560px; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
     .hero-photo-side { position: relative; overflow: hidden; }
     .hero-photo { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
     .hero-photo--empty { background: var(--deep); display: flex; align-items: center; justify-content: center; }
