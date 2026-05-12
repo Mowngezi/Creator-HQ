@@ -639,6 +639,86 @@ function absoluteUrl(pathOrUrl) {
   return baseTrim + pathPrefixed;
 }
 
+// ── Schema.org JSON-LD for creator profile pages ───────────────────────────
+// Makes CreatorHQ profiles machine-readable primary sources.
+// AI crawlers and search engines can use this structured entity data
+// instead of relying on secondhand journalist articles.
+// Spec: https://schema.org/Person
+function creatorJSONLD(creator) {
+  const firstName  = creator.nameDetails?.first || (creator.name || '').trim().split(' ')[0] || '';
+  const lastName   = creator.nameDetails?.last  || (creator.name || '').trim().split(' ').slice(1).join(' ') || '';
+  const fullName   = [firstName, lastName].filter(Boolean).join(' ');
+  const bio        = (creator.bioParagraphs || []).join(' ') || creator.bio || '';
+  const role       = creator.niche    || 'Content Creator';
+  const location   = creator.location || '';
+  const photoUrl   = creator.photo?.url ? absoluteUrl(creator.photo.url) : '';
+  const profileUrl = absoluteUrl(`/c/${creator.id}`);
+  const email      = creator.email || creator.contact?.email || '';
+
+  // Social profile URLs — strip leading @ from handles
+  const ig  = creator.platforms?.instagram || creator.platformsOld?.instagram || {};
+  const tt  = creator.platforms?.tiktok    || creator.platformsOld?.tiktok    || {};
+  const fb  = creator.platforms?.facebook  || {};
+  const sameAs = [
+    ig.handle ? `https://www.instagram.com/${ig.handle.replace(/^@/, '')}` : null,
+    tt.handle ? `https://www.tiktok.com/@${tt.handle.replace(/^@/, '')}` : null,
+    fb.handle ? `https://www.facebook.com/${fb.handle.replace(/^@/, '')}` : null,
+  ].filter(Boolean);
+
+  // knowsAbout — content pillars + audience interests
+  const pillars   = (creator.bioPillars || []).map(p => p.label || p.text || p).filter(Boolean);
+  const interests = creator.audience?.interests || [];
+  const knowsAbout = [...new Set([...pillars, ...interests])].filter(Boolean);
+
+  // Brand partnerships as sponsor entities
+  const brands = (creator.brands || creator.workPreview || [])
+    .filter(b => b.brand || b.name)
+    .map(b => ({ '@type': 'Organization', 'name': b.brand || b.name }));
+
+  // Reach stats as interactionStatistic
+  const interactions = [];
+  const addStat = (platform, count, type) => {
+    if (count) interactions.push({
+      '@type': 'InteractionCounter',
+      'interactionType': { '@type': type },
+      'userInteractionCount': Number(String(count).replace(/[^0-9]/g, '')) || 0,
+      'name': platform,
+    });
+  };
+  addStat('Instagram', ig.followers, 'FollowAction');
+  addStat('TikTok',    tt.followers, 'FollowAction');
+  addStat('Facebook',  fb.followers, 'FollowAction');
+
+  const entity = {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    '@id': profileUrl,
+    'name': fullName,
+    'givenName': firstName,
+    'familyName': lastName,
+    'jobTitle': role,
+    'description': bio.slice(0, 500) || undefined,
+    'url': profileUrl,
+    ...(photoUrl  ? { 'image': photoUrl }   : {}),
+    ...(location  ? { 'homeLocation': { '@type': 'Place', 'name': location } } : {}),
+    ...(email     ? { 'email': email }       : {}),
+    ...(sameAs.length    ? { sameAs }        : {}),
+    ...(knowsAbout.length ? { knowsAbout }   : {}),
+    ...(brands.length    ? { 'sponsor': brands } : {}),
+    ...(interactions.length ? { 'interactionStatistic': interactions } : {}),
+    'mainEntityOfPage': {
+      '@type': 'WebPage',
+      '@id': profileUrl,
+      'name': `${fullName} · Media Kit`,
+      'isPartOf': { '@type': 'WebSite', 'name': 'CreatorHQ', 'url': absoluteUrl('/') },
+    },
+  };
+
+  // Strip undefined values so JSON stays clean
+  const clean = JSON.parse(JSON.stringify(entity));
+  return `<script type="application/ld+json">\n${JSON.stringify(clean, null, 2)}\n</script>`;
+}
+
 // ---- shared head / fonts / base CSS (used by form + landing) ----
 
 function headCSS() {
@@ -1194,6 +1274,8 @@ export function renderCardHTML(creator, { forPDF = false, justCreated = false, j
   <title>${esc(kitTitle)}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   ${ogMeta({ title: kitTitle, description: kitDesc, image: kitImage, url: kitUrl, type: 'profile' })}
+  <link rel="canonical" href="${esc(kitUrl)}">
+  ${creatorJSONLD(creator)}
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <meta name="theme-color" content="#0a0a0a">
@@ -1812,11 +1894,17 @@ export function renderPDFHTML(creator, photoBase64 = null) {
   // Paper-first content limits — PDF is a teaser, not a transcript
   const bioShort = (() => {
     const full = bioParagraphs.join(' ');
-    return full.length > 400 ? full.slice(0, 400) + '…' : full;
+    return full.length > 200 ? full.slice(0, 200) + '…' : full;
   })();
-  const brandsLine  = brands.slice(0, 5).map(b => esc(b.brand)).join(' · ');
-  const ratesGrid   = rates.slice(0, 4);
+  const brandsLine    = brands.slice(0, 5).map(b => esc(b.brand)).join(' · ');
+  const ratesGrid     = rates.slice(0, 4);
   const packagesShort = packages.slice(0, 2);
+
+  // Contact fields for footer — strip leading @ so we control the prefix
+  const igHandle     = (creator.platforms?.instagram?.handle || '').replace(/^@/, '');
+  const ttHandle     = (creator.platforms?.tiktok?.handle    || '').replace(/^@/, '');
+  const contactEmail = creator.email || creator.contact?.email || '';
+  const contactWa    = creator.contact?.whatsapp || creator.contact?.phone || '';
 
   return `<!doctype html>
 <html lang="en">
@@ -1837,517 +1925,562 @@ export function renderPDFHTML(creator, photoBase64 = null) {
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { background: var(--paper); }
-    body { font-family: 'Instrument Sans', sans-serif; font-weight: 300; font-size: 10pt; line-height: 1.6; color: var(--deep); -webkit-font-smoothing: antialiased; }
+    html, body { background: #888; }
+    body { font-family: 'Instrument Sans', sans-serif; font-weight: 300; color: var(--deep); -webkit-font-smoothing: antialiased; }
 
-    /* ── PAGE CONSTRAINTS ── */
+    @page { size: A4 portrait; margin: 0; }
+
+    /* ── SINGLE A4 PAGE — 794×1123px ──
+       6 horizontal bands summing to exactly 1123px:
+       Hero(390) + Bio(155) + Audience(145) + Rates(165) + Packages(165) + Footer(103) = 1123 */
     .page {
       width: 794px;
       height: 1123px;
       overflow: hidden;
       position: relative;
-      page-break-after: always;
+      display: flex;
+      flex-direction: column;
     }
-    .page:last-child { page-break-after: auto; }
 
-    @page { size: A4; margin: 0; }
-    @media print { .page { page-break-after: always; } }
+    /* ── PLACEHOLDER utility ── */
+    .ph {
+      font-size: 6.5pt;
+      font-style: italic;
+      color: var(--smoke);
+      border: 1px dashed var(--line);
+      padding: 7px 10px;
+      border-radius: 2px;
+      line-height: 1.4;
+    }
+    .ph--dark {
+      color: rgba(255,255,255,0.18);
+      border-color: rgba(255,255,255,0.1);
+    }
 
-    /* ── PAGE 1: COVER ── */
-    .cover {
+    /* ═══════════════════════════════════════
+       BAND 1 — HERO STRIP (390px)
+       Photo left (317px) · Info right (477px)
+    ════════════════════════════════════════ */
+    .hero-strip {
+      height: 390px;
+      flex-shrink: 0;
       display: grid;
-      grid-template-columns: 365px 1fr;
-      height: 1123px;
+      grid-template-columns: 317px 1fr;
+      overflow: hidden;
     }
-    .cover__photo {
-      width: 365px;
-      height: 1123px;
+    .hero-photo {
+      width: 317px;
+      height: 390px;
       overflow: hidden;
       background: var(--deep);
+      background-size: cover;
+      background-position: center top;
+      background-repeat: no-repeat;
+      position: relative;
     }
-    .cover__photo img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      object-position: center top;
-      display: block;
+    .hero-initials {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 64pt;
+      font-weight: 300;
+      color: rgba(255,255,255,0.12);
+      letter-spacing: -0.02em;
     }
-    .cover__panel {
+    .hero-panel {
       background: var(--ink);
       display: flex;
       flex-direction: column;
-      justify-content: flex-end;
-      padding: 48px 44px;
-      position: relative;
+      padding: 26px 32px;
+      overflow: hidden;
     }
-    .cover__bar {
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      padding: 28px 44px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .cover__kit-label {
-      font-size: 6pt;
+    .hero-kit-tag {
+      font-size: 5.5pt;
       font-weight: 500;
       letter-spacing: 0.28em;
       text-transform: uppercase;
-      color: rgba(255,255,255,0.2);
-      border: 1px solid rgba(255,255,255,0.09);
-      padding: 4px 10px;
+      color: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 3px 9px;
       border-radius: 100px;
+      display: inline-block;
+      align-self: flex-start;
     }
-    .cover__chq {
-      font-size: 6pt;
-      font-weight: 500;
-      letter-spacing: 0.32em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.13);
-    }
-    .cover__name {
+    .hero-name {
       font-family: 'Cormorant Garamond', serif;
       font-weight: 300;
-      font-size: 52pt;
-      line-height: 0.92;
+      font-size: 40pt;
+      line-height: 0.95;
       color: var(--white);
       letter-spacing: -0.01em;
+      margin-top: auto;
+      margin-bottom: 10px;
     }
-    .cover__name em { font-style: italic; color: rgba(255,255,255,0.3); }
-    .cover__rule { width: 20px; height: 1px; background: rgba(255,255,255,0.2); margin: 20px 0 14px; }
-    .cover__descriptor {
-      font-size: 6pt;
+    .hero-name em { font-style: italic; color: rgba(255,255,255,0.28); }
+    .hero-rule { width: 16px; height: 1px; background: rgba(255,255,255,0.18); margin-bottom: 9px; }
+    .hero-descriptor {
+      font-size: 5.5pt;
       font-weight: 400;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: rgba(255,255,255,0.28);
-      line-height: 2.2;
-      margin-bottom: 28px;
+      color: rgba(255,255,255,0.22);
+      line-height: 2.1;
+      margin-bottom: 16px;
     }
-    .cover__reach {
+    .hero-stats {
       display: flex;
-      gap: 24px;
-      padding-top: 20px;
-      border-top: 1px solid rgba(255,255,255,0.07);
+      gap: 20px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255,255,255,0.06);
     }
-    .reach-num {
+    .hero-stat-num {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 18pt;
+      font-size: 16pt;
       font-weight: 300;
       color: var(--white);
       line-height: 1;
     }
-    .reach-lbl {
-      font-size: 5.5pt;
-      font-weight: 500;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.18);
-      margin-top: 4px;
-    }
-
-    /* ── PAGE HEADER STRIP (pages 2+) ── */
-    .page-header {
-      background: var(--deep);
-      padding: 14px 48px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .page-header__label {
-      font-size: 6pt;
-      font-weight: 500;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.35);
-    }
-    .page-header__num {
-      font-size: 6pt;
-      letter-spacing: 0.2em;
-      color: rgba(255,255,255,0.2);
-    }
-
-    /* ── PAGE 2: PAPER-FIRST TWO-COLUMN ── */
-    /* Page 2 is a flex column so the body fills the gap between quote and footer */
-    .page.p2 { display: flex; flex-direction: column; background: var(--paper); }
-
-    /* Pull-quote header zone */
-    .p2-quote {
-      padding: 24px 48px 20px;
-      border-bottom: 1px solid var(--line);
-      flex-shrink: 0;
-    }
-    .p2-tagline {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 28pt;
-      font-weight: 300;
-      line-height: 1.05;
-      color: var(--deep);
-      overflow: hidden;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-    }
-    .p2-tagline em { font-style: italic; color: var(--dusk); }
-    .p2-quote-roles {
-      margin-top: 7px;
-      font-size: 6pt;
-      font-weight: 400;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--smoke);
-    }
-
-    /* Two-column body — fills remaining height */
-    .p2-body {
-      flex: 1;
-      min-height: 0;
-      display: grid;
-      grid-template-columns: 54% 46%;
-      overflow: hidden;
-    }
-
-    /* Left column: bio + pillars + brands */
-    .p2-left {
-      padding: 26px 30px 24px 48px;
-      border-right: 1px solid var(--line);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .p2-eyebrow {
-      font-size: 5.5pt;
-      font-weight: 500;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: var(--smoke);
-      margin-bottom: 12px;
-    }
-    .p2-bio-text {
-      font-size: 8pt;
-      color: var(--dusk);
-      line-height: 1.85;
-      overflow: hidden;
-    }
-    .p2-pillars-strip {
-      margin-top: auto;
-      padding-top: 16px;
-      border-top: 1px solid var(--line);
-    }
-    .p2-pillar {
-      display: grid;
-      grid-template-columns: 108px 1fr;
-      gap: 10px;
-      padding: 6px 0;
-      border-bottom: 1px solid var(--line);
-    }
-    .p2-pillar__label {
-      font-size: 5.5pt;
+    .hero-stat-lbl {
+      font-size: 5pt;
       font-weight: 500;
       letter-spacing: 0.18em;
       text-transform: uppercase;
-      color: var(--smoke);
-      padding-top: 1px;
+      color: rgba(255,255,255,0.14);
+      margin-top: 3px;
     }
-    .p2-pillar__text { font-size: 7pt; color: var(--dusk); line-height: 1.65; }
-    .p2-brands-line { margin-top: 14px; }
-    .p2-brands-lbl {
-      font-size: 5pt;
-      font-weight: 500;
-      letter-spacing: 0.25em;
-      text-transform: uppercase;
-      color: var(--smoke);
-      margin-bottom: 4px;
-    }
-    .p2-brands-names { font-size: 6.5pt; color: var(--dusk); line-height: 1.7; }
 
-    /* Right column: audience + rates + packages */
-    .p2-right {
-      padding: 26px 48px 24px 30px;
+    /* ═══════════════════════════════════════
+       BAND 2 — BIO (155px, paper)
+       Tagline left · Bio text right
+    ════════════════════════════════════════ */
+    .bio-band {
+      height: 155px;
+      flex-shrink: 0;
+      display: grid;
+      grid-template-columns: 42% 58%;
+      background: var(--paper);
+      border-top: 1px solid var(--line);
+      overflow: hidden;
+    }
+    .bio-band__left {
+      padding: 18px 18px 14px 32px;
+      border-right: 1px solid var(--line);
+      overflow: hidden;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
-      gap: 16px;
+      justify-content: center;
     }
-    .p2-sect-lbl {
-      font-size: 5.5pt;
+    .bio-band__right {
+      padding: 18px 32px 14px 18px;
+      overflow: hidden;
+    }
+    .band-eyebrow {
+      font-size: 5pt;
       font-weight: 500;
-      letter-spacing: 0.28em;
+      letter-spacing: 0.3em;
       text-transform: uppercase;
       color: var(--smoke);
-      margin-bottom: 5px;
+      margin-bottom: 8px;
     }
-    .p2-region {
+    .bio-tagline {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 22pt;
+      font-size: 19pt;
       font-weight: 300;
+      line-height: 1.06;
       color: var(--deep);
-      line-height: 1;
-      margin-bottom: 5px;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
     }
-    .p2-loc-tags { display: flex; flex-wrap: wrap; gap: 3px; }
-    .p2-loc-tag {
-      font-size: 5.5pt;
+    .bio-tagline em { font-style: italic; color: var(--dusk); }
+    .bio-text {
+      font-size: 7.5pt;
       color: var(--dusk);
-      border: 1px solid var(--smoke);
-      padding: 2px 7px;
-      border-radius: 100px;
+      line-height: 1.8;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      margin-bottom: 8px;
     }
-    .p2-age {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 26pt;
-      font-weight: 300;
-      color: var(--deep);
-      line-height: 1;
+    .bio-pillars {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
     }
-    .p2-age-lbl { font-size: 6pt; color: var(--dusk); margin-top: 2px; }
-    .p2-interest-tags { display: flex; flex-wrap: wrap; gap: 3px; }
-    .p2-interest-tag {
-      font-size: 5.5pt;
-      background: rgba(0,0,0,0.06);
-      color: var(--deep);
+    .bio-pillar-tag {
+      font-size: 5pt;
+      color: var(--dusk);
+      border: 1px solid var(--line);
       padding: 2px 7px;
       border-radius: 100px;
     }
 
-    /* Rates 2×2 */
-    .p2-rates-grid {
+    /* ═══════════════════════════════════════
+       BAND 3 — AUDIENCE (145px, sand)
+       Region + age left · Interests + brands right
+    ════════════════════════════════════════ */
+    .aud-band {
+      height: 145px;
+      flex-shrink: 0;
       display: grid;
       grid-template-columns: 1fr 1fr;
+      background: var(--sand);
+      border-top: 1px solid rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    .aud-band__left {
+      padding: 16px 16px 12px 32px;
+      border-right: 1px solid rgba(0,0,0,0.07);
+      overflow: hidden;
+    }
+    .aud-band__right {
+      padding: 16px 32px 12px 16px;
+      overflow: hidden;
+    }
+    .aud-region {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 17pt;
+      font-weight: 300;
+      color: var(--deep);
+      line-height: 1;
+      margin-bottom: 5px;
+    }
+    .aud-loc-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 7px; }
+    .aud-loc-tag {
+      font-size: 5pt;
+      color: var(--dusk);
+      border: 1px solid rgba(0,0,0,0.14);
+      padding: 2px 6px;
+      border-radius: 100px;
+    }
+    .aud-age {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 19pt;
+      font-weight: 300;
+      color: var(--deep);
+      line-height: 1;
+    }
+    .aud-age-lbl { font-size: 5.5pt; color: var(--dusk); margin-top: 2px; }
+    .aud-interest-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 8px; }
+    .aud-interest-tag {
+      font-size: 5pt;
+      background: rgba(0,0,0,0.07);
+      color: var(--deep);
+      padding: 2px 6px;
+      border-radius: 100px;
+    }
+    .aud-brands-lbl {
+      font-size: 5pt;
+      font-weight: 500;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--smoke);
+      margin-bottom: 3px;
+    }
+    .aud-brands-names { font-size: 6pt; color: var(--dusk); line-height: 1.65; }
+
+    /* ═══════════════════════════════════════
+       BAND 4 — RATES (165px, paper)
+       4-column rate menu across full width
+    ════════════════════════════════════════ */
+    .rates-band {
+      height: 165px;
+      flex-shrink: 0;
+      background: var(--paper);
+      border-top: 1px solid var(--line);
+      padding: 18px 32px 14px;
+      overflow: hidden;
+    }
+    .rates-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
       gap: 1px;
       background: var(--line);
-      flex-shrink: 0;
+      margin-top: 10px;
     }
-    .p2-rate-cell {
+    .rate-cell {
       background: var(--paper);
-      padding: 9px 11px;
+      padding: 13px 14px 11px;
     }
-    .p2-rate-type {
+    .rate-cell.ph-cell { background: var(--paper); opacity: 0.4; }
+    .rate-type {
       font-size: 5pt;
       font-weight: 500;
       letter-spacing: 0.2em;
       text-transform: uppercase;
       color: var(--dusk);
-      margin-bottom: 4px;
+      margin-bottom: 6px;
     }
-    .p2-rate-price {
+    .rate-price {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 13pt;
+      font-size: 15pt;
       font-weight: 300;
       color: var(--deep);
       line-height: 1;
     }
-    .p2-rate-note { font-size: 5pt; color: var(--smoke); margin-top: 2px; }
+    .rate-note { font-size: 4.5pt; color: var(--smoke); margin-top: 2px; }
 
-    /* Packages compact */
-    .p2-pkg-stack {
-      display: flex;
-      flex-direction: column;
-      gap: 1px;
-      background: var(--line);
+    /* ═══════════════════════════════════════
+       BAND 5 — PACKAGES (165px, dark)
+       2-column package cards on dark ground
+    ════════════════════════════════════════ */
+    .pkg-band {
+      height: 165px;
       flex-shrink: 0;
+      background: var(--deep);
+      border-top: 1px solid rgba(255,255,255,0.05);
+      padding: 18px 32px 14px;
+      overflow: hidden;
     }
-    .p2-pkg {
-      background: var(--paper);
-      padding: 8px 11px;
+    .pkg-eyebrow {
+      font-size: 5pt;
+      font-weight: 500;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.18);
+      margin-bottom: 10px;
+    }
+    .pkg-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: rgba(255,255,255,0.08);
+    }
+    .pkg-card {
+      background: var(--deep);
+      padding: 11px 14px;
       display: grid;
       grid-template-columns: 1fr auto;
       align-items: start;
-      gap: 6px;
+      gap: 8px;
+      overflow: hidden;
     }
-    .p2-pkg.highlight { background: var(--deep); }
-    .p2-pkg__name {
+    .pkg-card.highlight { background: rgba(255,255,255,0.05); }
+    .pkg__name {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 9pt;
+      font-size: 10pt;
       font-weight: 300;
-      color: var(--deep);
-      margin-bottom: 2px;
+      color: rgba(255,255,255,0.82);
+      margin-bottom: 3px;
     }
-    .p2-pkg.highlight .p2-pkg__name { color: rgba(255,255,255,0.9); }
-    .p2-pkg__desc { font-size: 5.5pt; color: var(--dusk); line-height: 1.55; }
-    .p2-pkg.highlight .p2-pkg__desc { color: rgba(255,255,255,0.4); }
-    .p2-pkg__price {
+    .pkg__desc { font-size: 5.5pt; color: rgba(255,255,255,0.45); line-height: 1.55; }
+    .pkg__price {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 9.5pt;
+      font-size: 10pt;
       font-weight: 300;
-      color: var(--deep);
+      color: rgba(255,255,255,0.65);
       white-space: nowrap;
       text-align: right;
     }
-    .p2-pkg.highlight .p2-pkg__price { color: rgba(255,255,255,0.65); }
 
-    /* ── FOOTER (page 2) ── */
+    /* ═══════════════════════════════════════
+       BAND 6 — FOOTER COLOPHON (103px, darkest)
+    ════════════════════════════════════════ */
     .pdf-footer {
-      background: var(--ink);
-      padding: 16px 48px 14px;
+      height: 103px;
       flex-shrink: 0;
-    }
-    .pdf-footer__inner {
+      background: var(--ink);
+      border-top: 1px solid rgba(255,255,255,0.04);
+      padding: 16px 32px 14px;
       display: flex;
-      align-items: flex-end;
+      align-items: center;
       justify-content: space-between;
+      overflow: hidden;
     }
     .pdf-footer__name {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 15pt;
+      font-size: 14pt;
       font-weight: 300;
       color: var(--white);
       line-height: 1;
     }
-    .pdf-footer__name em { font-style: italic; color: rgba(255,255,255,0.22); }
-    .pdf-footer__desc { font-size: 5.5pt; color: rgba(255,255,255,0.18); letter-spacing: 0.08em; margin-top: 5px; }
-    .pdf-footer__cta { font-family: 'Cormorant Garamond', serif; font-size: 8.5pt; font-style: italic; color: rgba(255,255,255,0.45); margin-bottom: 3px; text-align: right; }
-    .pdf-footer__contact { font-size: 5.5pt; color: rgba(255,255,255,0.2); text-align: right; }
-    .pdf-footer__bottom {
-      margin-top: 12px;
-      padding-top: 10px;
-      border-top: 1px solid rgba(255,255,255,0.05);
-      display: flex;
-      justify-content: space-between;
+    .pdf-footer__name em { font-style: italic; color: rgba(255,255,255,0.2); }
+    .pdf-footer__desc { font-size: 5.5pt; color: rgba(255,255,255,0.15); margin-top: 4px; letter-spacing: 0.05em; }
+    .pdf-footer__mid { text-align: center; }
+    .pdf-footer__cta {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 9pt;
+      font-style: italic;
+      color: rgba(255,255,255,0.35);
+      margin-bottom: 6px;
     }
-    .pdf-footer__credit { font-size: 5pt; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(255,255,255,0.1); }
-    .pdf-footer__credit span { color: rgba(255,255,255,0.22); }
-    .pdf-footer__date { font-size: 5pt; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.1); }
+    .pdf-footer__right { text-align: right; }
+    .pdf-footer__contact { font-size: 6.5pt; color: rgba(255,255,255,0.70); margin-bottom: 4px; letter-spacing: 0.02em; }
+    .pdf-footer__handle  { font-size: 5.5pt; color: rgba(255,255,255,0.45); margin-bottom: 2px; letter-spacing: 0.04em; }
+    .pdf-footer__meta { font-size: 4pt; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.08); margin-top: 4px; }
+    .pdf-footer__meta span { color: rgba(255,255,255,0.12); }
   </style>
 </head>
 <body>
 
 <!-- ═══════════════════════════════════════
-     PAGE 1 — COVER
+     SINGLE A4 PAGE — 6 HORIZONTAL BANDS
+     Hero(390) + Bio(155) + Audience(145) + Rates(165) + Packages(165) + Footer(103) = 1123px
 ════════════════════════════════════════ -->
-<div class="page">
-  <div class="cover">
-    <div class="cover__photo">
-      ${photoSrc ? `<img src="${photoSrc}" alt="${firstName} ${lastName}">` : ''}
-    </div>
-    <div class="cover__panel">
-      <div class="cover__bar">
-        <span class="cover__kit-label">Media Kit · ${year}</span>
-        <span class="cover__chq">CreatorHQ</span>
-      </div>
-      <div class="cover__name">${firstName}<br><em>${lastName}</em></div>
-      <div class="cover__rule"></div>
-      <div class="cover__descriptor">
-        ${esc(role)}${subtitle ? `<br>${esc(subtitle)}` : ''}${location ? `<br>${esc(location)}` : ''}
-      </div>
-      ${reach.length > 0 ? `
-      <div class="cover__reach">
-        ${reach.slice(0, 3).map(r => `
-        <div>
-          <div class="reach-num">${esc(r.val)}</div>
-          <div class="reach-lbl">${esc(r.lbl)}</div>
-        </div>`).join('')}
-      </div>` : ''}
-    </div>
-  </div>
-</div>
+<div class="page" id="page1">
 
-<!-- ═══════════════════════════════════════
-     PAGE 2 — PULL QUOTE + TWO-COLUMN BODY
-════════════════════════════════════════ -->
-<div class="page p2" id="page2">
+  <!-- ── BAND 1: HERO STRIP (390px) ── -->
+  <div class="hero-strip">
 
-  <!-- Page header strip -->
-  <div class="page-header">
-    <span class="page-header__label">Media Kit · ${year}</span>
-    <span class="page-header__num">02 / 02</span>
-  </div>
-
-  <!-- Pull-quote zone: tagline as editorial anchor -->
-  <div class="p2-quote">
-    <div class="p2-tagline">${taglineDisplay || `${firstName} <em>${lastName}</em>`}</div>
-    ${roles.length ? `<div class="p2-quote-roles">${roles.slice(0, 2).map(r => esc(r)).join(' · ')}</div>` : ''}
-  </div>
-
-  <!-- Two-column body -->
-  <div class="p2-body">
-
-    <!-- ── LEFT: Bio + Pillars + Brands ── -->
-    <div class="p2-left">
-      <div class="p2-eyebrow">About</div>
-      <div class="p2-bio-text">${esc(bioShort)}</div>
-
-      ${bioPillars.length > 0 ? `
-      <div class="p2-pillars-strip">
-        ${bioPillars.slice(0, 3).map(p => `
-        <div class="p2-pillar">
-          <div class="p2-pillar__label">${esc(p.label)}</div>
-          <div class="p2-pillar__text">${esc(p.text)}</div>
-        </div>`).join('')}
-      </div>` : ''}
-
-      ${brandsLine ? `
-      <div class="p2-brands-line${bioPillars.length ? '' : ' p2-brands-mt'}">
-        <div class="p2-brands-lbl">Worked With</div>
-        <div class="p2-brands-names">${brandsLine}</div>
-      </div>` : ''}
+    <!-- Photo panel (317px) — background-image so html2canvas respects cover crop -->
+    <div class="hero-photo"${photoSrc ? ` style="background-image:url('${photoSrc}')"` : ''}>
+      ${!photoSrc
+        ? `<div class="hero-initials">${firstName ? firstName[0].toUpperCase() : ''}${lastName ? lastName[0].toUpperCase() : ''}</div>`
+        : ''
+      }
     </div>
 
-    <!-- ── RIGHT: Audience + Rates + Packages ── -->
-    <div class="p2-right">
-
-      ${audience ? `
-      <div>
-        <div class="p2-sect-lbl">Audience</div>
-        <div class="p2-region">${esc(audience.primaryRegion || 'South Africa')}</div>
-        ${locationTags.length ? `<div class="p2-loc-tags">${locationTags.slice(0, 3).map(t => `<span class="p2-loc-tag">${esc(t)}</span>`).join('')}</div>` : ''}
-        ${audience.ageGroup ? `
-        <div style="margin-top:10px;">
-          <div class="p2-age">${esc(audience.ageGroup)}</div>
-          <div class="p2-age-lbl">${esc(audience.ageLabel || 'Core age group')}</div>
-        </div>` : ''}
-        ${audience.interests?.length ? `
-        <div class="p2-interest-tags" style="margin-top:8px;">
-          ${audience.interests.slice(0, 3).map(t => `<span class="p2-interest-tag">${esc(t)}</span>`).join('')}
-        </div>` : ''}
-      </div>` : ''}
-
-      ${ratesGrid.length ? `
-      <div>
-        <div class="p2-sect-lbl">Content Rates</div>
-        <div class="p2-rates-grid">
-          ${ratesGrid.map(r => `
-          <div class="p2-rate-cell">
-            <div class="p2-rate-type">${esc(r.label)}</div>
-            <div class="p2-rate-price">${esc(fmtCurrency(r.amount))}</div>
-            ${r.note ? `<div class="p2-rate-note">${esc(r.note)}</div>` : ''}
-          </div>`).join('')}
-        </div>
-      </div>` : ''}
-
-      ${packagesShort.length ? `
-      <div>
-        <div class="p2-sect-lbl">Packages</div>
-        <div class="p2-pkg-stack">
-          ${packagesShort.map(p => `
-          <div class="p2-pkg${p.highlight ? ' highlight' : ''}">
+    <!-- Info panel (477px) -->
+    <div class="hero-panel">
+      <span class="hero-kit-tag">Media Kit · ${year}</span>
+      <div class="hero-name">${firstName}${lastName ? `<br><em>${lastName}</em>` : ''}</div>
+      <div class="hero-rule"></div>
+      <div class="hero-descriptor">${esc(role)}${subtitle ? `<br>${esc(subtitle)}` : ''}${location ? `<br>${esc(location)}` : ''}</div>
+      ${reach.length > 0
+        ? `<div class="hero-stats">
+            ${reach.slice(0, 3).map(r => `
             <div>
-              <div class="p2-pkg__name">${esc(p.name)}</div>
-              ${p.description ? `<div class="p2-pkg__desc">${esc(p.description.replace(/\n/g, ' · ').slice(0, 80))}</div>` : ''}
-            </div>
-            <div class="p2-pkg__price">${esc(p.price)}</div>
-          </div>`).join('')}
-        </div>
-      </div>` : ''}
-
+              <div class="hero-stat-num">${esc(r.val)}</div>
+              <div class="hero-stat-lbl">${esc(r.lbl)}</div>
+            </div>`).join('')}
+          </div>`
+        : `<div class="ph ph--dark">Add platform stats to show your reach.</div>`
+      }
     </div>
   </div>
 
-  <!-- Footer colophon -->
-  <div class="pdf-footer">
-    <div class="pdf-footer__inner">
-      <div>
-        <div class="pdf-footer__name">${firstName} <em>${lastName}</em></div>
-        <div class="pdf-footer__desc">${esc(role)}${location ? ` · ${esc(location)}` : ''}</div>
-      </div>
-      <div>
-        <div class="pdf-footer__cta">Let's build something real.</div>
-        <div class="pdf-footer__contact">${esc(creator.email || creator.contact?.email || '')}</div>
-      </div>
+  <!-- ── BAND 2: BIO (155px) ── -->
+  <div class="bio-band">
+    <div class="bio-band__left">
+      <div class="band-eyebrow">About</div>
+      ${creator.tagline
+        ? `<div class="bio-tagline">${taglineDisplay}</div>`
+        : `<div class="ph">Add a tagline — your creative identity in one line.</div>`
+      }
     </div>
-    <div class="pdf-footer__bottom">
-      <div class="pdf-footer__credit">Generated by <span>CreatorHQ</span></div>
-      <div class="pdf-footer__date" id="ts-text"></div>
+    <div class="bio-band__right">
+      ${bioShort
+        ? `<div class="bio-text">${esc(bioShort)}</div>`
+        : `<div class="ph">Add a bio to tell brands your story.</div>`
+      }
+      ${bioPillars.length > 0
+        ? `<div class="bio-pillars">
+            ${bioPillars.slice(0, 4).map(p => `<span class="bio-pillar-tag">${esc(p.label || p.text || p)}</span>`).join('')}
+          </div>`
+        : ''
+      }
+    </div>
+  </div>
+
+  <!-- ── BAND 3: AUDIENCE (145px) ── -->
+  <div class="aud-band">
+    <div class="aud-band__left">
+      <div class="band-eyebrow">Audience</div>
+      ${audience?.primaryRegion || locationTags.length
+        ? `<div class="aud-region">${esc(audience?.primaryRegion || locationTags[0] || 'South Africa')}</div>
+           ${locationTags.length
+             ? `<div class="aud-loc-tags">${locationTags.slice(0, 3).map(t => `<span class="aud-loc-tag">${esc(t)}</span>`).join('')}</div>`
+             : ''
+           }
+           ${audience?.ageGroup
+             ? `<div class="aud-age">${esc(audience.ageGroup)}</div>
+                <div class="aud-age-lbl">${esc(audience.ageLabel || 'Core age group')}</div>`
+             : ''
+           }`
+        : `<div class="ph">Add your audience region and demographics.</div>`
+      }
+    </div>
+    <div class="aud-band__right">
+      ${audience?.interests?.length
+        ? `<div class="band-eyebrow">Interests</div>
+           <div class="aud-interest-tags">
+             ${audience.interests.slice(0, 5).map(t => `<span class="aud-interest-tag">${esc(t)}</span>`).join('')}
+           </div>`
+        : `<div class="ph">Add audience interests to attract aligned brands.</div>`
+      }
+      ${brandsLine
+        ? `<div class="aud-brands-lbl">Worked With</div>
+           <div class="aud-brands-names">${brandsLine}</div>`
+        : `<div class="ph" style="margin-top:8px;">Brands you've worked with will appear here.</div>`
+      }
+    </div>
+  </div>
+
+  <!-- ── BAND 4: RATES (165px) ── -->
+  <div class="rates-band">
+    <div class="band-eyebrow">Content Rates</div>
+    <div class="rates-grid">
+      ${ratesGrid.length > 0
+        ? ratesGrid.map(r => `
+          <div class="rate-cell">
+            <div class="rate-type">${esc(r.label)}</div>
+            <div class="rate-price">${esc(fmtCurrency(r.amount))}</div>
+            ${r.note ? `<div class="rate-note">${esc(r.note)}</div>` : ''}
+          </div>`).join('')
+        : `<div class="rate-cell ph-cell" style="grid-column:1/-1;">
+             <div class="ph">Set your rates — brands need to know your value.</div>
+           </div>`
+      }
+      ${ratesGrid.length > 0 && ratesGrid.length < 4
+        ? Array(4 - ratesGrid.length).fill(0).map(() => `
+          <div class="rate-cell ph-cell">
+            <div class="rate-type" style="opacity:0.4;">—</div>
+            <div class="rate-price" style="opacity:0.2;">—</div>
+          </div>`).join('')
+        : ''
+      }
+    </div>
+  </div>
+
+  <!-- ── BAND 5: PACKAGES (165px) ── -->
+  <div class="pkg-band">
+    <div class="pkg-eyebrow">Collaboration Packages</div>
+    <div class="pkg-grid">
+      ${packagesShort.length > 0
+        ? packagesShort.map((p, i) => `
+          <div class="pkg-card${i === 0 ? ' highlight' : ''}">
+            <div>
+              <div class="pkg__name">${esc(p.name)}</div>
+              ${p.description ? `<div class="pkg__desc">${esc(p.description.replace(/\n/g, ' · ').slice(0, 90))}</div>` : ''}
+            </div>
+            <div class="pkg__price">${esc(p.price || '—')}</div>
+          </div>`).join('')
+        : `<div class="pkg-card" style="grid-column:1/-1;">
+             <div class="ph ph--dark">Add collaboration packages — give brands ready-made options.</div>
+           </div>`
+      }
+      ${packagesShort.length === 1
+        ? `<div class="pkg-card">
+             <div><div class="ph ph--dark">Add a second package.</div></div>
+           </div>`
+        : ''
+      }
+    </div>
+  </div>
+
+  <!-- ── BAND 6: FOOTER COLOPHON (103px) ── -->
+  <div class="pdf-footer">
+    <div>
+      <div class="pdf-footer__name">${firstName}${lastName ? ` <em>${lastName}</em>` : ''}</div>
+      <div class="pdf-footer__desc">${esc(role)}${location ? ` · ${esc(location)}` : ''}</div>
+    </div>
+    <div class="pdf-footer__mid">
+      <div class="pdf-footer__cta">Let's build something real.</div>
+    </div>
+    <div class="pdf-footer__right">
+      ${contactEmail
+        ? `<div class="pdf-footer__contact">${esc(contactEmail)}</div>`
+        : `<div class="ph ph--dark">Add contact email</div>`
+      }
+      ${contactWa ? `<div class="pdf-footer__handle">WA · ${esc(contactWa)}</div>` : ''}
+      ${igHandle  ? `<div class="pdf-footer__handle">IG · @${esc(igHandle)}</div>` : ''}
+      ${ttHandle  ? `<div class="pdf-footer__handle">TT · @${esc(ttHandle)}</div>` : ''}
+      <div class="pdf-footer__meta">Generated by <span>CreatorHQ</span> · <span id="ts-text"></span></div>
     </div>
   </div>
 
@@ -3381,6 +3514,20 @@ export function renderFormHTML(creator = null, opts = {}) {
 
       <fieldset>
         <legend>Contact</legend>
+
+        <label>Cell number</label>
+        <input name="phone" type="tel" placeholder="+27 82 000 0000" value="${esc(creator?.contact?.phone || '')}">
+
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400;margin-top:2px;">
+          <input type="checkbox" name="wa_same" id="wa-same"
+            onchange="document.getElementById('wa-field').style.display=this.checked?'none':'block'"
+            ${(!creator?.contact?.whatsapp || creator?.contact?.whatsapp === creator?.contact?.phone) ? 'checked' : ''}>
+          WhatsApp is the same number
+        </label>
+        <input name="whatsapp" type="tel" id="wa-field" placeholder="+27 82 000 0000"
+          value="${esc(creator?.contact?.whatsapp && creator.contact.whatsapp !== creator?.contact?.phone ? creator.contact.whatsapp : '')}"
+          style="display:${(!creator?.contact?.whatsapp || creator?.contact?.whatsapp === creator?.contact?.phone) ? 'none' : 'block'}">
+
         <label>Contact note <span class="hint">· shown next to email on the kit</span></label>
         <textarea name="contact_note" placeholder="e.g. For campaign briefs and partnership proposals reach out to discuss your brand goals">${esc(contactNote)}</textarea>
       </fieldset>
@@ -3529,7 +3676,7 @@ export function renderFormHTML(creator = null, opts = {}) {
       document.getElementById('edit-crop-zone').style.display = 'block';
       if (_editCropper) _editCropper.destroy();
       _editCropper = new Cropper(cropImg, {
-        aspectRatio: 365 / 1123,
+        aspectRatio: 317 / 390,
         viewMode: 1,
         guides: false,
         center: false,
@@ -3550,7 +3697,7 @@ export function renderFormHTML(creator = null, opts = {}) {
       if (!_editCropper) return;
       e.preventDefault();
       var form = this;
-      var canvas = _editCropper.getCroppedCanvas({ width: 730, height: 2246, imageSmoothingQuality: 'high' });
+      var canvas = _editCropper.getCroppedCanvas({ width: 634, height: 780, imageSmoothingQuality: 'high' });
       canvas.toBlob(function(blob) {
         try {
           var dt = new DataTransfer();
@@ -3935,7 +4082,20 @@ export function renderFormHTML(creator = null, opts = {}) {
           <button type="button" class="add-btn" onclick="addRate()">+ Add custom rate</button>
         </div>
 
-        <label style="margin-top:24px;">Contact note</label>
+        <label style="margin-top:24px;">Cell number</label>
+        <input name="phone" type="tel" placeholder="+27 82 000 0000" value="${esc(creator?.contact?.phone || '')}">
+
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400;margin-top:4px;">
+          <input type="checkbox" name="wa_same" id="wa-same"
+            onchange="document.getElementById('wa-field').style.display=this.checked?'none':'block'"
+            ${(!creator?.contact?.whatsapp || creator?.contact?.whatsapp === creator?.contact?.phone) ? 'checked' : ''}>
+          WhatsApp is the same number
+        </label>
+        <input name="whatsapp" type="tel" id="wa-field" placeholder="+27 82 000 0000"
+          value="${esc(creator?.contact?.whatsapp && creator.contact.whatsapp !== creator?.contact?.phone ? creator.contact.whatsapp : '')}"
+          style="display:${(!creator?.contact?.whatsapp || creator?.contact?.whatsapp === creator?.contact?.phone) ? 'none' : 'block'}">
+
+        <label style="margin-top:16px;">Contact note</label>
         <textarea name="contact_note" placeholder="For campaign briefs and partnership proposals...">${esc(contactNote)}</textarea>
       </div>
       `}
@@ -4055,7 +4215,7 @@ export function renderFormHTML(creator = null, opts = {}) {
       document.getElementById('crop-zone').style.display = 'block';
       if (_cropper) _cropper.destroy();
       _cropper = new Cropper(cropImg, {
-        aspectRatio: 365 / 1123,   // exact cover slot ratio
+        aspectRatio: 317 / 390,    // exact hero photo slot ratio (band 1 left panel)
         viewMode: 1,               // crop box stays inside image
         guides: false,
         center: false,
@@ -4079,7 +4239,7 @@ export function renderFormHTML(creator = null, opts = {}) {
       if (!_cropper) return; // no photo selected, pass through
       e.preventDefault();
       var form = this;
-      var canvas = _cropper.getCroppedCanvas({ width: 730, height: 2246, imageSmoothingQuality: 'high' });
+      var canvas = _cropper.getCroppedCanvas({ width: 634, height: 780, imageSmoothingQuality: 'high' });
       canvas.toBlob(function(blob) {
         try {
           var dt = new DataTransfer();

@@ -1,7 +1,6 @@
 {
   "id": "KhKumalo",
   "createdAt": "2026-04-15T00:00:00.000Z",
-  "statsUpdatedAt": "2026-04-18T10:00:00.000Z",
   "name": "Khanyisile Khumalo",
   "handle": "@khanyisilekhumalo",
   "niche": "Digital Content Creator",
@@ -63,29 +62,78 @@
     }
   },
   "audience": {
-    "gender": { "male": "42%", "female": "58%" },
+    "gender": {
+      "male": "42%",
+      "female": "58%"
+    },
     "age": [
-      { "range": "18-24", "percentage": "45%" },
-      { "range": "25-34", "percentage": "35%" }
+      {
+        "range": "18-24",
+        "percentage": "45%"
+      },
+      {
+        "range": "25-34",
+        "percentage": "35%"
+      }
     ],
     "locations": [
-      { "name": "Gauteng", "percentage": "60%" },
-      { "name": "Western Cape", "percentage": "20%" }
+      {
+        "name": "Gauteng",
+        "percentage": "60%"
+      },
+      {
+        "name": "Western Cape",
+        "percentage": "20%"
+      }
     ],
     "primaryRegion": "South Africa",
     "ageGroup": "18–34",
     "ageLabel": "Gen Z & Millennials",
     "interests": [
-      "Fashion", "Beauty", "SA Humour", "Community Life", "Lifestyle", "Township Culture", "Music", "Cars", "FMCG"
+      "Fashion",
+      "Beauty",
+      "SA Humour",
+      "Community Life",
+      "Lifestyle",
+      "Township Culture",
+      "Music",
+      "Cars",
+      "FMCG"
     ],
     "note": "Her audience does not simply watch her content. They follow her lead. She naturally converts digital engagement into physical presence, making her an ideal partner for brands seeking both cultural relevance and reach."
   },
   "brands": [
-    { "name": "Google",   "category": "Tech", "evidence": ["https://www.instagram.com/p/C5_x7j9NW0/"] },
-    { "name": "KitKat",   "category": "FMCG", "evidence": ["https://www.tiktok.com/@khanyisilekhumalo/video/7350000000"] },
-    { "name": "Nestlé",   "category": "FMCG", "evidence": [] },
-    { "name": "FNB",      "category": "Financial Services", "evidence": ["https://twitter.com/khanyisile/status/1234567"] },
-    { "name": "Vaseline", "category": "Beauty & Skincare", "evidence": [] }
+    {
+      "name": "Google",
+      "category": "Tech",
+      "evidence": [
+        "https://www.instagram.com/p/C5_x7j9NW0/"
+      ]
+    },
+    {
+      "name": "KitKat",
+      "category": "FMCG",
+      "evidence": [
+        "https://www.tiktok.com/@khanyisilekhumalo/video/7350000000"
+      ]
+    },
+    {
+      "name": "Nestlé",
+      "category": "FMCG",
+      "evidence": []
+    },
+    {
+      "name": "FNB",
+      "category": "Financial Services",
+      "evidence": [
+        "https://twitter.com/khanyisile/status/1234567"
+      ]
+    },
+    {
+      "name": "Vaseline",
+      "category": "Beauty & Skincare",
+      "evidence": []
+    }
   ],
   "packages": [
     {
@@ -116,13 +164,33 @@
     }
   },
   "customRates": [
-    { "label": "Single Image", "amount": 2500 },
-    { "label": "Carousel", "amount": 4500 },
-    { "label": "Video", "amount": 15000 },
-    { "label": "Story Set", "amount": 1800 }
+    {
+      "label": "Single Image",
+      "amount": 2500
+    },
+    {
+      "label": "Carousel",
+      "amount": 4500
+    },
+    {
+      "label": "Video",
+      "amount": 15000
+    },
+    {
+      "label": "Story Set",
+      "amount": 1800
+    }
   ],
   "contact": {
     "email": "bookings@khanyisilekhumalo.co.za",
     "note": "For campaign briefs and partnership proposals reach out to discuss your brand goals"
+  },
+  "ownership": {
+    "owner_token": "6a534ddc7b739f27ee03e42fbe0da88e",
+    "salt": "6df91692cb9439db",
+    "contact_hash": "c7e40350d478ad77fecaf0151f175698714d3c8baee4ada89f2bae024c405628",
+    "dob_hash": "939657013f09d9c70652c09f2c63c62c47a90c2976f0ebfd57a5fe862cd22cb3",
+    "contact_type": "email",
+    "created_at": "2026-05-01T17:45:10.427Z"
   }
 }

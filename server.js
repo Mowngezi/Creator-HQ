@@ -320,10 +320,18 @@ function extractCreatorData(body) {
     bio: bioText,
     bioParagraphs,
     bioPillars,
-    contact: {
-      email: String(body.email || '').trim() || null,
-      note: String(body.contact_note || '').trim()
-    },
+    contact: (() => {
+      const phone     = String(body.phone     || '').trim() || null;
+      const whatsapp  = body.wa_same === 'on'
+        ? phone
+        : (String(body.whatsapp || '').trim() || phone || null);
+      return {
+        email:    String(body.email || '').trim() || null,
+        note:     String(body.contact_note || '').trim(),
+        phone,
+        whatsapp,
+      };
+    })(),
     email: String(body.email || '').trim() || null,
     platformsOld: {
       instagram: {
