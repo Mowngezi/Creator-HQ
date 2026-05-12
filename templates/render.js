@@ -999,7 +999,8 @@ function headCSS() {
     .auth-input:focus { outline: none; border-color: #0a0a0a; }
 
     @media (max-width: 480px) {
-      .nudge { bottom: 0; left: 0; right: 0; transform: none; width: 100%; border-radius: 0; border-top: 1px solid rgba(0,0,0,0.05); }
+      /* On mobile: nudge sits above the action bar, not at the bottom edge */
+      .nudge { bottom: 5rem; left: 1rem; right: 1rem; width: auto; transform: none; border-radius: 12px; border-top: none; }
       @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
     }
 
