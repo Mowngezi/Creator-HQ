@@ -12,3 +12,6 @@ data/*.json
 
 .env
 .DS_Store
+.nolwazi/
+public/pdf/
+public/chq v1 ref/

@@ -3,7 +3,7 @@
 // Design system (locked — Khanyisile media kit reference):
 //   Typography: Cormorant Garamond (display/names), Instrument Sans (UI/body)
 //   Palette:    --paper #f0ece4, --sand #e6e0d8, --ink #0a0a0a, --white #f8f5f0
-//   Layout:     Scrollable web sections — NOT A4 boxes. PDF via html2pdf.js (client-side)
+//   Layout:     Scrollable web sections — NOT A4 boxes. PDF via html2canvas on fixed 794x1123 div (never html2pdf on body)
 //   Rhythm:     Cover (dark) → Bio (light) → Stats (dark) → Audience (sand) → Brands+Rates (light) → Footer (dark)
 
 const esc = (s) =>
@@ -19,7 +19,7 @@ const fmtNum = (n) => {
   const num = Number(n);
   if (num >= 1000000) return (num / 1000000).toFixed(num % 1000000 === 0 ? 0 : 1) + 'M';
   if (num >= 1000) return (num / 1000).toFixed(num % 1000 === 0 ? 0 : 1) + 'K';
-  return num.toLocaleString('en-ZB');
+  return num.toLocaleString('en-ZA');
 };
 
 const fmtCurrency = (n) => {
@@ -38,90 +38,95 @@ const fmtCurrency = (n) => {
 //   renderSiteHeader({ current: 'kit', back: { href: '/', label: 'Home' }, theme: 'on-dark' })
 //
 // theme: 'on-light' (default) or 'on-dark' for use over the dark cover.
-function renderSiteHeader({ current = '', back = null, theme = 'on-light' } = {}) {
-  const onDark = theme === 'on-dark';
-  const fg = onDark ? 'rgba(255,255,255,0.92)' : '#0a0a0a';
-  const fgMuted = onDark ? 'rgba(255,255,255,0.55)' : 'rgba(10,10,10,0.55)';
-  const bg = onDark ? 'transparent' : 'rgba(255,255,255,0.92)';
-  const border = onDark ? 'rgba(255,255,255,0.08)' : 'rgba(10,10,10,0.08)';
+// renderSiteHeader: opaque black band on EVERY page. Same identity, same
+// typography, same affordances. Drops the prior theme switcher because Mongezi
+// said: "Maintain black band on all pages." Brand consistency over visual
+// blending. Logo in tiny letter-spaced Instrument Sans, paper-coloured.
+//
+// Right side carries global navigation (About + Get Started). Auto-suppresses
+// the link to the page you're already on. Contextual back-links (Cancel,
+// Back to my kit) live in each PAGE's body, not in the band.
+//
+// Usage:
+//   renderSiteHeader({ current: 'landing' })
+//   renderSiteHeader({ current: 'kit' })
+//   renderSiteHeader({ current: 'form' })
+function renderSiteHeader({ current = '' } = {}) {
   return `
   <style>
-    .chq-header {
-      position: sticky; top: 0; z-index: 50;
+    .chq-nav {
+      position: relative; z-index: 5;
+      padding: 1.6rem 4rem;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0.85rem 1.25rem;
-      background: ${bg};
-      backdrop-filter: saturate(140%) blur(6px);
-      -webkit-backdrop-filter: saturate(140%) blur(6px);
-      border-bottom: 1px solid ${border};
+      background: #0a0a0a;
+      border-bottom: 1px solid rgba(248,245,240,0.06);
     }
-    .chq-header__logo {
-      display: inline-flex; align-items: baseline; gap: 0.55rem;
-      text-decoration: none; color: ${fg};
-      font-family: 'Cormorant Garamond', Georgia, serif;
-      font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em;
-    }
-    .chq-header__logo span {
+    .chq-nav__logo {
       font-family: 'Instrument Sans', sans-serif;
-      font-size: 0.6rem; letter-spacing: 0.18em; text-transform: uppercase;
-      color: ${fgMuted}; font-weight: 500;
+      font-size: 0.65rem; font-weight: 500;
+      letter-spacing: 0.35em; text-transform: uppercase;
+      color: rgba(248,245,240,0.55);
+      text-decoration: none;
+      transition: color 0.15s;
     }
-    .chq-header__nav { display: flex; align-items: center; gap: 0.6rem; font-family: 'Instrument Sans', sans-serif; }
-    .chq-header__nav a {
-      color: ${fgMuted}; text-decoration: none;
-      font-size: 0.72rem; letter-spacing: 0.04em;
-      padding: 0.4rem 0.6rem; border-radius: 6px;
-      transition: color 0.15s, border-color 0.15s, background 0.15s;
+    .chq-nav__logo:hover { color: rgba(248,245,240,0.95); }
+    .chq-nav__items {
+      display: flex; align-items: center; gap: 2rem;
+      font-family: 'Instrument Sans', sans-serif;
     }
-    .chq-header__nav a:hover { color: ${fg}; }
-    .chq-header__back {
-      border: 1px solid ${border};
+    .chq-nav__items a {
+      font-size: 0.6rem; font-weight: 500;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: rgba(248,245,240,0.55); text-decoration: none;
+      transition: color 0.15s;
     }
-    .chq-header__back:hover { border-color: ${fg}; }
-    @media (max-width: 480px) {
-      .chq-header { padding: 0.7rem 0.9rem; }
-      .chq-header__logo { font-size: 0.95rem; }
-      .chq-header__logo span { display: none; }
-      .chq-header__nav { gap: 0.35rem; }
-      .chq-header__nav a { padding: 0.35rem 0.5rem; font-size: 0.7rem; }
+    .chq-nav__items a:hover { color: rgba(248,245,240,0.95); }
+    @media (max-width: 720px) {
+      .chq-nav { padding: 1.1rem 1.25rem; }
+      .chq-nav__items { gap: 1.2rem; }
+      .chq-nav__items a { font-size: 0.55rem; letter-spacing: 0.18em; padding: 0.75rem 0; display: inline-block; }
     }
   </style>
-  <header class="chq-header">
-    <a href="/" class="chq-header__logo" aria-label="CreatorHQ home">
-      CreatorHQ
-      <span>Simulacra</span>
-    </a>
-    <nav class="chq-header__nav">
-      ${current !== 'landing' ? `<a href="/">Home</a>` : ''}
-      ${back ? `<a href="${esc(back.href)}" class="chq-header__back">← ${esc(back.label)}</a>` : ''}
-    </nav>
-  </header>`;
+  <nav class="chq-nav">
+    <a href="/" class="chq-nav__logo" aria-label="CreatorHQ home">CreatorHQ</a>
+    <div class="chq-nav__items">
+      ${current !== 'about' ? `<a href="/about">About</a>` : ''}
+      ${current !== 'form' ? `<a href="/new">Get Started</a>` : ''}
+    </div>
+  </nav>`;
 }
 
-// ---- shared trust strip (landing + form) -----------------------------------
-// Tells a stranger: who built this, who's already on it, what we do with data,
-// why no signup. The single biggest first-impression boost for the
-// dark-promoter wave when Khanyi shares.
-function renderTrustStrip() {
+// ---- shared trust testimonial (landing) -----------------------------------
+// Replaces the prior four-column box. Single quiet pull-quote in italic
+// Cormorant from Khanyi (placeholder voice; refine with her actual words
+// before merge to main). Caption below names her, links to her kit, and
+// communicates the trust signals (no signup, data stays yours, made in SA)
+// as quiet text rather than feature boxes. Editorial, not SaaS.
+function renderTrustStrip({ theme = 'dark' } = {}) {
+  const onDark = theme === 'dark';
+  const fg = onDark ? '#f8f5f0' : '#0a0a0a';
+  const fgQuiet = onDark ? 'rgba(248,245,240,0.55)' : 'rgba(10,10,10,0.55)';
+  const fgFaint = onDark ? 'rgba(248,245,240,0.32)' : 'rgba(10,10,10,0.42)';
+  const ruleColor = onDark ? 'rgba(255,255,255,0.06)' : 'rgba(10,10,10,0.08)';
+  const linkBorder = onDark ? 'rgba(248,245,240,0.18)' : 'rgba(10,10,10,0.2)';
   return `
-  <section class="chq-trust" style="border-top:1px solid rgba(10,10,10,0.08); border-bottom:1px solid rgba(10,10,10,0.08); padding:1.5rem 1.25rem; background:#fafafa;">
-    <div style="max-width:980px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:1.5rem; font-family:'Instrument Sans',sans-serif; font-size:0.78rem; line-height:1.5; color:rgba(10,10,10,0.7);">
-      <div>
-        <div style="font-size:0.62rem; letter-spacing:0.16em; text-transform:uppercase; color:rgba(10,10,10,0.5); margin-bottom:0.4rem;">Built in SA</div>
-        Made by Mowa Khoza in Johannesburg, for African creators.
+  <section class="chq-testimonial" style="border-top:1px solid ${ruleColor}; border-bottom:1px solid ${ruleColor}; padding:5rem 2rem;">
+    <div style="max-width:780px; margin:0 auto; text-align:center;">
+      <blockquote style="font-family:'Cormorant Garamond', serif; font-style:italic; font-weight:300; font-size:clamp(1.5rem, 3.2vw, 2rem); line-height:1.4; color:${fg}; margin:0 0 2rem; letter-spacing:-0.01em;">
+        &ldquo;A brand asked for my rates on a Tuesday. By Wednesday I sent them a link. By Friday we were shooting.&rdquo;
+      </blockquote>
+      <div style="font-family:'Instrument Sans', sans-serif; font-size:0.62rem; letter-spacing:0.22em; text-transform:uppercase; color:${fgQuiet};">
+        <a href="/c/KhKumalo" style="color:${fg}; text-decoration:none; border-bottom:1px solid ${linkBorder}; padding-bottom:1px;">Khanyisile Khumalo</a>
+        <span style="margin:0 0.6rem; color:${fgFaint};">·</span>
+        Tembisa
+        <span style="margin:0 0.6rem; color:${fgFaint};">·</span>
+        On CreatorHQ since April
       </div>
-      <div>
-        <div style="font-size:0.62rem; letter-spacing:0.16em; text-transform:uppercase; color:rgba(10,10,10,0.5); margin-bottom:0.4rem;">Used by</div>
-        <a href="/c/KhKumalo" style="color:rgba(10,10,10,0.7); border-bottom:1px solid rgba(10,10,10,0.2); text-decoration:none;">Khanyisile Khumalo</a>, Tembisa creator. Brands have her on file.
-      </div>
-      <div>
-        <div style="font-size:0.62rem; letter-spacing:0.16em; text-transform:uppercase; color:rgba(10,10,10,0.5); margin-bottom:0.4rem;">Your data</div>
-        Stays yours. You own the URL. Edit or delete any time. No tracking pixels, no resale.
-      </div>
-      <div>
-        <div style="font-size:0.62rem; letter-spacing:0.16em; text-transform:uppercase; color:rgba(10,10,10,0.5); margin-bottom:0.4rem;">No signup</div>
-        Build a kit in 4 minutes without an account. Add login later if you want analytics or edit-from-anywhere.
-      </div>
+    </div>
+    <div style="max-width:780px; margin:3rem auto 0; padding-top:2rem; border-top:1px solid ${ruleColor}; display:flex; justify-content:center; gap:2.5rem; flex-wrap:wrap; font-family:'Instrument Sans',sans-serif; font-size:0.72rem; color:${fgQuiet}; letter-spacing:0.02em;">
+      <span>Built in Johannesburg</span>
+      <span>No signup needed</span>
+      <span>Your data stays yours</span>
     </div>
   </section>`;
 }
@@ -137,13 +142,13 @@ export function renderNotFoundHTML({ what = 'page' } = {}) {
   <style>
     ${localFonts()}
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Instrument Sans', system-ui, sans-serif; background: #fafafa; color: #0a0a0a; min-height: 100vh; display: flex; flex-direction: column; }
+    body { font-family: 'Instrument Sans', system-ui, sans-serif; background: #0a0a0a; color: #f8f5f0; min-height: 100vh; display: flex; flex-direction: column; }
     main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 1.5rem; text-align: center; }
-    h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 4rem; font-weight: 300; line-height: 1; margin-bottom: 1rem; letter-spacing: -0.02em; }
-    h1 em { font-style: italic; color: rgba(10,10,10,0.55); }
-    p { font-size: 1rem; color: rgba(10,10,10,0.6); margin-bottom: 2rem; max-width: 32rem; }
-    a.cta { display: inline-block; background: #0a0a0a; color: #fff; text-decoration: none; padding: 0.85rem 1.5rem; border-radius: 100px; font-size: 0.85rem; letter-spacing: 0.04em; }
-    a.cta:hover { background: #1a1a1a; }
+    h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: clamp(3rem, 8vw, 5rem); font-weight: 300; line-height: 1; margin-bottom: 1.25rem; letter-spacing: -0.02em; color: #f8f5f0; }
+    h1 em { font-style: italic; color: rgba(248,245,240,0.4); }
+    p { font-size: 1rem; color: rgba(248,245,240,0.5); margin-bottom: 2.5rem; max-width: 32rem; line-height: 1.7; }
+    a.back { display: inline-flex; align-items: center; gap: 0.4rem; color: #f8f5f0; text-decoration: none; font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; border-bottom: 1px solid rgba(248,245,240,0.4); padding-bottom: 4px; transition: border-color 0.2s; }
+    a.back:hover { border-color: #f8f5f0; }
   </style>
 </head>
 <body>
@@ -151,10 +156,381 @@ export function renderNotFoundHTML({ what = 'page' } = {}) {
   <main>
     <h1>Not <em>here.</em></h1>
     <p>The ${esc(what)} you tried to open does not exist or has been moved. The kit owner may have deleted it, or the link was mistyped.</p>
-    <a href="/" class="cta">Back to CreatorHQ</a>
+    <a href="/" class="back">Back to CreatorHQ →</a>
   </main>
 </body>
 </html>`;
+}
+
+// Branded error page for /create failures (validation 400s + the catch-all
+// 500). Replaces a previous text/plain dead-end. The "Back to /new" link
+// returns the user to the form so they can fix and resubmit. The form does
+// not currently round-trip values; that is a v1 acceptable trade-off.
+export function renderCreateErrorHTML({ message = 'We could not create your kit.', status = 400 } = {}) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CreatorHQ · ${status === 500 ? 'Something broke' : 'Check your details'}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <meta name="theme-color" content="#0a0a0a">
+  <style>
+    ${localFonts()}
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Instrument Sans', system-ui, sans-serif; background: #0a0a0a; color: #f8f5f0; min-height: 100vh; display: flex; flex-direction: column; }
+    main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 1.5rem; text-align: center; }
+    .eyebrow { font-size: 0.62rem; font-weight: 500; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(248,245,240,0.35); margin-bottom: 1.25rem; }
+    h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: clamp(2.4rem, 6vw, 3.6rem); font-weight: 300; line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 1.5rem; max-width: 16ch; }
+    h1 em { font-style: italic; color: rgba(248,245,240,0.5); }
+    p { font-size: 1rem; color: rgba(248,245,240,0.65); line-height: 1.75; margin-bottom: 2.5rem; max-width: 38rem; }
+    a.back { display: inline-flex; align-items: center; gap: 0.5rem; color: #f8f5f0; text-decoration: none; font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; border-bottom: 1px solid rgba(248,245,240,0.4); padding-bottom: 4px; transition: border-color 0.2s; }
+    a.back:hover { border-color: #f8f5f0; }
+  </style>
+</head>
+<body>
+  ${renderSiteHeader({ current: 'error' })}
+  <main>
+    <div class="eyebrow">${status === 500 ? '500 · Something broke' : '400 · Check your details'}</div>
+    <h1>${status === 500 ? `Something <em>broke.</em>` : `One <em>thing</em> off.`}</h1>
+    <p>${esc(message)}</p>
+    <a href="/new" class="back">Back to the form →</a>
+  </main>
+</body>
+</html>`;
+}
+
+// About page. Editorial register, ~150 words, three short paragraphs.
+// Mongezi-credited. Single text-link CTA at bottom in same treatment as 404.
+export function renderAboutHTML() {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CreatorHQ · About</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  ${ogMeta({
+    title: 'CreatorHQ · About',
+    description: 'A media kit and rate card generator for African creators. Built in Johannesburg by Mongezi Xhoma. No signup, no recurring fee.',
+    image: absoluteUrl('/og-default.png'),
+    url: absoluteUrl('/about'),
+    type: 'website'
+  })}
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <meta name="theme-color" content="#0a0a0a">
+  <style>
+    ${localFonts()}
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Instrument Sans', system-ui, sans-serif; background: #0a0a0a; color: #f8f5f0; min-height: 100vh; display: flex; flex-direction: column; }
+    main { flex: 1; max-width: 640px; margin: 0 auto; padding: 5rem 1.75rem 6rem; width: 100%; }
+    .eyebrow { font-size: 0.62rem; font-weight: 500; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(248,245,240,0.35); margin-bottom: 1.5rem; }
+    h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: clamp(2.4rem, 6.5vw, 3.6rem); font-weight: 300; line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 3rem; color: #f8f5f0; max-width: 14ch; }
+    h1 em { font-style: italic; color: rgba(248,245,240,0.5); }
+    p { font-size: 1.02rem; color: rgba(248,245,240,0.7); line-height: 1.85; margin-bottom: 1.5rem; max-width: 56ch; }
+    p strong { color: #f8f5f0; font-weight: 500; }
+    .rule { width: 32px; height: 1px; background: rgba(248,245,240,0.18); margin: 3rem 0; }
+    .cta-row { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; margin-top: 2.5rem; }
+    a.cta {
+      display: inline-flex; align-items: center; gap: 0.6rem;
+      background: #f8f5f0; color: #0a0a0a;
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 0.72rem; font-weight: 500;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      text-decoration: none;
+      padding: 1rem 1.75rem; border-radius: 100px;
+      transition: opacity 0.2s;
+    }
+    a.cta:hover { opacity: 0.88; }
+    a.text-link {
+      color: #f8f5f0; text-decoration: underline; text-underline-offset: 4px;
+      font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    a.text-link:hover { color: rgba(248,245,240,0.7); }
+    @media (max-width: 480px) {
+      main { padding: 3rem 1.5rem 5rem; }
+      p { font-size: 0.95rem; line-height: 1.75; }
+    }
+  </style>
+</head>
+<body>
+  ${renderSiteHeader({ current: 'about' })}
+  <main>
+    <div class="eyebrow">About</div>
+    <h1>The kit you wish you had <em>last week.</em></h1>
+
+    <p>CreatorHQ is a media kit and rate card generator built for <strong>African creators</strong>. The kind who get asked their rates more than they want to. The kind who answer brand DMs by hunting for last quarter's screenshot. The kind who undercharge because nobody told them what they were worth.</p>
+
+    <p>Build a designed, scrollable kit in five minutes without an account. Share a permanent link. Send a PDF. Let your numbers do the talking instead of you.</p>
+
+    <p>Built in Johannesburg by <strong>Mongezi Xhoma</strong>. No signup, no monthly fee, no enterprise sales call. The kit is yours, the URL is yours, the terms are yours. We get paid later, when the platform earns it.</p>
+
+    <div class="rule"></div>
+
+    <div class="cta-row">
+      <a href="/new" class="cta">Build mine →</a>
+      <a href="/c/KhKumalo" class="text-link">See an example</a>
+    </div>
+  </main>
+</body>
+</html>`;
+}
+
+// "This kit belongs to someone else." Rendered when a non-owner hits
+// /c/:id/edit. Conversion-friendly: surfaces three text-links (recover access,
+// view the kit as a visitor, build your own) instead of a punitive 403.
+export function renderNotYoursHTML(creator) {
+  const id = esc(creator?.id || '');
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CreatorHQ · This kit belongs to someone else</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <meta name="theme-color" content="#0a0a0a">
+  <style>
+    ${localFonts()}
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Instrument Sans', system-ui, sans-serif; background: #0a0a0a; color: #f8f5f0; min-height: 100vh; display: flex; flex-direction: column; }
+    main { flex: 1; max-width: 600px; margin: 0 auto; padding: 5rem 1.75rem 6rem; width: 100%; }
+    .eyebrow { font-size: 0.62rem; font-weight: 500; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(248,245,240,0.35); margin-bottom: 1.5rem; }
+    h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: clamp(2.2rem, 6vw, 3.4rem); font-weight: 300; line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 1.5rem; color: #f8f5f0; }
+    h1 em { font-style: italic; color: rgba(248,245,240,0.5); }
+    p { font-size: 1rem; color: rgba(248,245,240,0.65); line-height: 1.75; margin-bottom: 2.5rem; max-width: 50ch; }
+    .links { display: flex; flex-direction: column; gap: 1rem; }
+    .links a { color: #f8f5f0; text-decoration: underline; text-underline-offset: 4px; font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.4rem 0; }
+    .links a:hover { opacity: 0.7; }
+  </style>
+</head>
+<body>
+  ${renderSiteHeader({ current: 'notyours' })}
+  <main>
+    <div class="eyebrow">403 · Not your kit</div>
+    <h1>This kit belongs to <em>someone else.</em></h1>
+    <p>If you're trying to edit your own, recover access from this device. If you're a brand, view the kit as it was shared. Or build your own. It takes about five minutes.</p>
+    <div class="links">
+      <a href="/c/${id}/recover">Recover access to this kit →</a>
+      <a href="/c/${id}">View the kit →</a>
+      <a href="/new">Build your own →</a>
+    </div>
+  </main>
+</body>
+</html>`;
+}
+
+// Recovery page: contact + DOB form. POST /c/:id/recover validates the inputs
+// against the stored hashes and sets the owner cookie on success.
+// `flash` carries an optional error message ('mismatch' | 'rate_limited' | null).
+export function renderRecoverHTML(creator, { flash = null } = {}) {
+  const id = esc(creator?.id || '');
+  const flashMsg = flash === 'mismatch'
+    ? 'We could not verify those details. Try again.'
+    : flash === 'rate_limited'
+      ? 'Too many attempts. Wait an hour and try again.'
+      : '';
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CreatorHQ · Recover access</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <meta name="theme-color" content="#0a0a0a">
+  <style>
+    ${localFonts()}
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Instrument Sans', system-ui, sans-serif; background: #0a0a0a; color: #f8f5f0; min-height: 100vh; display: flex; flex-direction: column; }
+    main { flex: 1; max-width: 460px; margin: 0 auto; padding: 4rem 1.75rem 6rem; width: 100%; }
+    .eyebrow { font-size: 0.62rem; font-weight: 500; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(248,245,240,0.35); margin-bottom: 1.5rem; }
+    h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: clamp(2rem, 5.5vw, 2.8rem); font-weight: 300; line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 1rem; color: #f8f5f0; }
+    h1 em { font-style: italic; color: rgba(248,245,240,0.5); }
+    p.lede { font-size: 0.95rem; color: rgba(248,245,240,0.6); line-height: 1.7; margin-bottom: 2.5rem; }
+    label { display: block; font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(248,245,240,0.5); margin: 18px 0 8px; }
+    input { width: 100%; padding: 14px 16px; background: rgba(255,255,255,0.04); border: 1px solid rgba(248,245,240,0.12); color: #f8f5f0; font-family: 'Instrument Sans', sans-serif; font-size: 16px; border-radius: 4px; }
+    input:focus { outline: none; border-color: rgba(248,245,240,0.4); }
+    .dob-row { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 8px; }
+    .flash { background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.3); color: var(--red); padding: 12px 16px; border-radius: 4px; font-size: 0.82rem; margin-bottom: 1.5rem; }
+    button { margin-top: 2rem; width: 100%; background: #f8f5f0; color: #0a0a0a; font-family: 'Instrument Sans', sans-serif; font-size: 0.78rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; padding: 1.1rem; border: none; border-radius: 100px; cursor: pointer; transition: opacity 0.15s; }
+    button:hover { opacity: 0.85; }
+    .alt { margin-top: 1.5rem; font-size: 0.7rem; letter-spacing: 0.08em; }
+    .alt a { color: rgba(248,245,240,0.55); text-decoration: underline; text-underline-offset: 4px; }
+    .alt a:hover { color: #f8f5f0; }
+  </style>
+</head>
+<body>
+  ${renderSiteHeader({ current: 'recover' })}
+  <main>
+    <div class="eyebrow">Recover</div>
+    <h1>Edit access on <em>this device.</em></h1>
+    <p class="lede">Confirm the contact and date of birth you set when you built this kit. We never stored the raw values; we hash and compare.</p>
+    ${flashMsg ? `<div class="flash">${esc(flashMsg)}</div>` : ''}
+    <form method="post" action="/c/${id}/recover">
+      <label>Contact <span style="text-transform:none;letter-spacing:0;color:rgba(248,245,240,0.4);">· email or SA cell</span></label>
+      <input name="recovery_contact" type="text" inputmode="email" autocomplete="email" placeholder="you@example.com  or  0821234567" required />
+
+      <label style="margin-top:24px;">Date of birth <span style="text-transform:none;letter-spacing:0;color:rgba(248,245,240,0.4);">· DD / MM / YYYY</span></label>
+      <div class="dob-row">
+        <input name="recovery_dob_d" type="text" inputmode="numeric" pattern="\\d*" maxlength="2" placeholder="DD" required aria-label="Day" />
+        <input name="recovery_dob_m" type="text" inputmode="numeric" pattern="\\d*" maxlength="2" placeholder="MM" required aria-label="Month" />
+        <input name="recovery_dob_y" type="text" inputmode="numeric" pattern="\\d*" maxlength="4" placeholder="YYYY" required aria-label="Year" />
+      </div>
+
+      <button type="submit">Recover access</button>
+    </form>
+    <div class="alt">
+      Wrong kit? <a href="/c/${id}">View it as a visitor</a> · or <a href="/new">build your own</a>.
+    </div>
+  </main>
+  <script>
+    (function() {
+      var dobInputs = document.querySelectorAll('input[name^="recovery_dob_"]');
+      if (!dobInputs.length) return;
+      dobInputs.forEach(function(el, i) {
+        el.addEventListener('input', function() {
+          if (el.value.length >= el.maxLength && i < dobInputs.length - 1) {
+            dobInputs[i + 1].focus();
+          }
+        });
+        el.addEventListener('keydown', function(e) {
+          if (e.key === 'Backspace' && el.value === '' && i > 0) {
+            dobInputs[i - 1].focus();
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+</html>`;
+}
+
+// Tiny markdown renderer. Headings, paragraphs, bold, italic, links, lists.
+// Enough for the Privacy + Terms docs without adding a dependency.
+//
+// SECURITY: SOURCE MUST BE OPERATOR-CONTROLLED. The link rule (`[txt](url)`)
+// will happily emit any href; we filter `javascript:` and `data:` schemes
+// here, but the broader fence is "do not feed user input into this
+// function". If you ever do, also re-audit escapeHtml against the rest of
+// Parse a URL and return a human-readable platform label for display.
+// Used in brand evidence links — shows "↗ Instagram" instead of a raw URL.
+function platformLabel(url) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '');
+    if (host.includes('instagram.com'))  return 'Instagram';
+    if (host.includes('tiktok.com'))     return 'TikTok';
+    if (host.includes('youtube.com') || host.includes('youtu.be')) return 'YouTube';
+    if (host.includes('twitter.com') || host.includes('x.com'))    return 'X / Twitter';
+    if (host.includes('facebook.com'))   return 'Facebook';
+    if (host.includes('linkedin.com'))   return 'LinkedIn';
+    // Fallback: capitalised root domain (e.g. "bbc.co.uk" → "Bbc")
+    const root = host.split('.').slice(-2)[0] || host;
+    return root.charAt(0).toUpperCase() + root.slice(1);
+  } catch { return 'Link'; }
+}
+
+// the rules; bold/italic/link patterns assume already-escaped text and a
+// trusted author.
+function tinyMarkdown(md) {
+  const escapeHtml = (s) => String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const lines = String(md || '').replace(/\r\n/g, '\n').split('\n');
+  const out = [];
+  let inList = false;
+  for (let raw of lines) {
+    const line = raw.trimEnd();
+    if (!line.trim()) {
+      if (inList) { out.push('</ul>'); inList = false; }
+      continue;
+    }
+    const m1 = line.match(/^# (.+)$/);
+    const m2 = line.match(/^## (.+)$/);
+    const m3 = line.match(/^### (.+)$/);
+    const mli = line.match(/^[-*] (.+)$/);
+    if (m1) { if (inList) { out.push('</ul>'); inList = false; } out.push(`<h1>${escapeHtml(m1[1])}</h1>`); continue; }
+    if (m2) { if (inList) { out.push('</ul>'); inList = false; } out.push(`<h2>${escapeHtml(m2[1])}</h2>`); continue; }
+    if (m3) { if (inList) { out.push('</ul>'); inList = false; } out.push(`<h3>${escapeHtml(m3[1])}</h3>`); continue; }
+    if (mli) {
+      if (!inList) { out.push('<ul>'); inList = true; }
+      out.push(`<li>${inlineMd(mli[1])}</li>`);
+      continue;
+    }
+    if (inList) { out.push('</ul>'); inList = false; }
+    out.push(`<p>${inlineMd(line)}</p>`);
+  }
+  if (inList) out.push('</ul>');
+  return out.join('\n');
+
+  function inlineMd(s) {
+    let txt = escapeHtml(s);
+    // Links [text](url) — guard the href scheme. Allow http(s), mailto,
+    // anchor, and absolute-path. Reject everything else (notably
+    // javascript: and data:) to a plain text span so a future operator
+    // pasting a sketchy link doesn't ship an XSS by accident.
+    txt = txt.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label, url) => {
+      const safe = /^(https?:\/\/|mailto:|\/|#)/i.test(url.trim());
+      return safe
+        ? `<a href="${url}">${label}</a>`
+        : `<span>${label}</span>`;
+    });
+    // Bold **text**
+    txt = txt.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    // Italic *text*
+    txt = txt.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    return txt;
+  }
+}
+
+// Shared chrome for Privacy + Terms — same dark register as About.
+function renderDocPage({ title, mdBody, ogPath }) {
+  const html = tinyMarkdown(mdBody);
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CreatorHQ · ${esc(title)}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  ${ogMeta({
+    title: `CreatorHQ · ${title}`,
+    description: `${title} for CreatorHQ.`,
+    image: absoluteUrl('/og-default.png'),
+    url: absoluteUrl(ogPath),
+    type: 'article'
+  })}
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <meta name="theme-color" content="#0a0a0a">
+  <style>
+    ${localFonts()}
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Instrument Sans', system-ui, sans-serif; background: #0a0a0a; color: #f8f5f0; min-height: 100vh; display: flex; flex-direction: column; }
+    main { flex: 1; max-width: 640px; margin: 0 auto; padding: 4rem 1.75rem 6rem; width: 100%; }
+    h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: clamp(2.4rem, 6vw, 3.4rem); font-weight: 300; line-height: 1.05; letter-spacing: -0.02em; margin: 0 0 2rem; color: #f8f5f0; }
+    h2 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 1.4rem; font-weight: 500; line-height: 1.2; margin: 2.5rem 0 1rem; color: #f8f5f0; }
+    h3 { font-family: 'Instrument Sans', sans-serif; font-size: 0.78rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(248,245,240,0.45); margin: 2rem 0 0.6rem; }
+    p { font-size: 1rem; color: rgba(248,245,240,0.7); line-height: 1.85; margin-bottom: 1.4rem; }
+    p strong { color: #f8f5f0; font-weight: 500; }
+    p em { color: rgba(248,245,240,0.85); }
+    p a { color: #f8f5f0; text-decoration: underline; text-underline-offset: 4px; }
+    p a:hover { opacity: 0.7; }
+    ul { color: rgba(248,245,240,0.7); font-size: 1rem; line-height: 1.85; margin: 0 0 1.4rem 1.25rem; padding-left: 0.5rem; }
+    ul li { margin-bottom: 0.4rem; }
+    @media (max-width: 480px) { main { padding: 3rem 1.5rem 5rem; } p, ul { font-size: 0.95rem; } }
+  </style>
+</head>
+<body>
+  ${renderSiteHeader({ current: 'doc' })}
+  <main>
+    ${html}
+  </main>
+</body>
+</html>`;
+}
+
+export function renderPrivacyHTML(mdBody) {
+  return renderDocPage({ title: 'Privacy', mdBody, ogPath: '/privacy' });
+}
+
+export function renderTermsHTML(mdBody) {
+  return renderDocPage({ title: 'Terms', mdBody, ogPath: '/terms' });
 }
 
 // ---- self-hosted typeface @font-face block --------------------------------
@@ -263,6 +639,86 @@ function absoluteUrl(pathOrUrl) {
   return baseTrim + pathPrefixed;
 }
 
+// ── Schema.org JSON-LD for creator profile pages ───────────────────────────
+// Makes CreatorHQ profiles machine-readable primary sources.
+// AI crawlers and search engines can use this structured entity data
+// instead of relying on secondhand journalist articles.
+// Spec: https://schema.org/Person
+function creatorJSONLD(creator) {
+  const firstName  = creator.nameDetails?.first || (creator.name || '').trim().split(' ')[0] || '';
+  const lastName   = creator.nameDetails?.last  || (creator.name || '').trim().split(' ').slice(1).join(' ') || '';
+  const fullName   = [firstName, lastName].filter(Boolean).join(' ');
+  const bio        = (creator.bioParagraphs || []).join(' ') || creator.bio || '';
+  const role       = creator.niche    || 'Content Creator';
+  const location   = creator.location || '';
+  const photoUrl   = creator.photo?.url ? absoluteUrl(creator.photo.url) : '';
+  const profileUrl = absoluteUrl(`/c/${creator.id}`);
+  const email      = creator.email || creator.contact?.email || '';
+
+  // Social profile URLs — strip leading @ from handles
+  const ig  = creator.platforms?.instagram || creator.platformsOld?.instagram || {};
+  const tt  = creator.platforms?.tiktok    || creator.platformsOld?.tiktok    || {};
+  const fb  = creator.platforms?.facebook  || {};
+  const sameAs = [
+    ig.handle ? `https://www.instagram.com/${ig.handle.replace(/^@/, '')}` : null,
+    tt.handle ? `https://www.tiktok.com/@${tt.handle.replace(/^@/, '')}` : null,
+    fb.handle ? `https://www.facebook.com/${fb.handle.replace(/^@/, '')}` : null,
+  ].filter(Boolean);
+
+  // knowsAbout — content pillars + audience interests
+  const pillars   = (creator.bioPillars || []).map(p => p.label || p.text || p).filter(Boolean);
+  const interests = creator.audience?.interests || [];
+  const knowsAbout = [...new Set([...pillars, ...interests])].filter(Boolean);
+
+  // Brand partnerships as sponsor entities
+  const brands = (creator.brands || creator.workPreview || [])
+    .filter(b => b.brand || b.name)
+    .map(b => ({ '@type': 'Organization', 'name': b.brand || b.name }));
+
+  // Reach stats as interactionStatistic
+  const interactions = [];
+  const addStat = (platform, count, type) => {
+    if (count) interactions.push({
+      '@type': 'InteractionCounter',
+      'interactionType': { '@type': type },
+      'userInteractionCount': Number(String(count).replace(/[^0-9]/g, '')) || 0,
+      'name': platform,
+    });
+  };
+  addStat('Instagram', ig.followers, 'FollowAction');
+  addStat('TikTok',    tt.followers, 'FollowAction');
+  addStat('Facebook',  fb.followers, 'FollowAction');
+
+  const entity = {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    '@id': profileUrl,
+    'name': fullName,
+    'givenName': firstName,
+    'familyName': lastName,
+    'jobTitle': role,
+    'description': bio.slice(0, 500) || undefined,
+    'url': profileUrl,
+    ...(photoUrl  ? { 'image': photoUrl }   : {}),
+    ...(location  ? { 'homeLocation': { '@type': 'Place', 'name': location } } : {}),
+    ...(email     ? { 'email': email }       : {}),
+    ...(sameAs.length    ? { sameAs }        : {}),
+    ...(knowsAbout.length ? { knowsAbout }   : {}),
+    ...(brands.length    ? { 'sponsor': brands } : {}),
+    ...(interactions.length ? { 'interactionStatistic': interactions } : {}),
+    'mainEntityOfPage': {
+      '@type': 'WebPage',
+      '@id': profileUrl,
+      'name': `${fullName} · Media Kit`,
+      'isPartOf': { '@type': 'WebSite', 'name': 'CreatorHQ', 'url': absoluteUrl('/') },
+    },
+  };
+
+  // Strip undefined values so JSON stays clean
+  const clean = JSON.parse(JSON.stringify(entity));
+  return `<script type="application/ld+json">\n${JSON.stringify(clean, null, 2)}\n</script>`;
+}
+
 // ---- shared head / fonts / base CSS (used by form + landing) ----
 
 function headCSS() {
@@ -276,6 +732,7 @@ function headCSS() {
       --off:   #f5f5f5;
       --rule:  rgba(10,10,10,0.15);
       --muted: rgba(10,10,10,0.45);
+      --red:   #dc2626;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -527,26 +984,10 @@ function headCSS() {
       .page { margin: 0; box-shadow: none; }
     }
 
-    /* ---- DATED / DECAY RULE ---- */
-    .is-dated {
-      opacity: 0.6;
-      filter: grayscale(1);
-      position: relative;
-    }
-    .dated-badge {
-      display: none;
-      position: absolute;
-      top: 1rem;
-      left: 1rem;
-      background: rgba(0,0,0,0.8);
-      color: #fff;
-      padding: 4px 12px;
-      font-size: 0.6rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      z-index: 1000;
-      border-radius: 2px;
-    }
+    /* Decay-Rule legacy CSS (.is-dated, .dated-badge) was removed in Phase B.
+       The freshness signal now lives in the hero-bar via .chq-fresh on kit and
+       .rate-fresh on the rate card. See formatFreshness() upstream.            */
+
     .nudge {
       position: fixed;
       bottom: 1.5rem;
@@ -638,27 +1079,35 @@ function headCSS() {
     .auth-input:focus { outline: none; border-color: #0a0a0a; }
 
     @media (max-width: 480px) {
-      .nudge { bottom: 0; left: 0; right: 0; transform: none; width: 100%; border-radius: 0; border-top: 1px solid rgba(0,0,0,0.05); }
+      /* On mobile: nudge sits above the action bar, not at the bottom edge */
+      .nudge { bottom: 5rem; left: 1rem; right: 1rem; width: auto; transform: none; border-radius: 12px; border-top: none; }
       @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
     }
-    .is-dated .dated-badge { display: block; }
 
     /* ---- BRAND EVIDENCE ---- */
     .brand-evidence {
       display: none;
-      background: rgba(0,0,0,0.03);
-      padding: 1rem;
-      margin-top: 0.5rem;
-      border-radius: 4px;
+      padding: 0.5rem 0 0.75rem;
     }
-    .brand-evidence.visible { display: block; }
+    .brand-evidence.visible { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
     .evidence-link {
-      display: block;
-      font-size: 0.8rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 0.6rem;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
       color: var(--dusk);
-      margin-bottom: 0.25rem;
-      text-decoration: underline;
+      text-decoration: none;
+      border: 1px solid var(--line);
+      padding: 0.3rem 0.75rem;
+      border-radius: 100px;
+      transition: border-color 0.15s, color 0.15s;
+      white-space: nowrap;
     }
+    .evidence-link:hover { border-color: var(--dusk); color: var(--ink); }
     .brand-row { cursor: pointer; transition: background 0.1s; }
     .brand-row:hover { background: rgba(0,0,0,0.02); }
   `;
@@ -712,12 +1161,40 @@ function renderSavedBanner() {
   </div>`;
 }
 
-export function renderCardHTML(creator, { forPDF = false, justCreated = false, justSaved = false } = {}) {
-  // Decay Rule calculation (7-day visual downgrade)
+// Freshness label shown in the hero-bar slot (where a dim duplicate "CreatorHQ"
+// wordmark used to live). Returns { text, stale } where stale=true after 7
+// days so callers can render in an "outdated" tone. The 7-day cliff matches
+// the existing isDated logic in the kit page; it is the de-facto "live kit"
+// guarantee we make to brands.
+//   {text:'Edited today',         stale:false}
+//   {text:'Edited 3 days ago',    stale:false}
+//   {text:'Edited 9 days ago',    stale:true}
+//   {text:'Edited Apr 2025',      stale:true}  // > 12 months
+function formatFreshness(iso) {
+  if (!iso) return null;
+  const then = new Date(iso);
+  if (isNaN(then.getTime())) return null;
+  const days = Math.floor((Date.now() - then.getTime()) / (1000 * 60 * 60 * 24));
+  const stale = days > 7;
+  let text;
+  if (days < 1) text = 'Edited today';
+  else if (days === 1) text = 'Edited yesterday';
+  else if (days < 30) text = `Edited ${days} days ago`;
+  else if (days < 60) text = 'Edited last month';
+  else {
+    const months = Math.floor(days / 30);
+    if (months < 12) text = `Edited ${months} months ago`;
+    else text = `Edited ${then.toLocaleDateString('en-ZA', { month: 'short', year: 'numeric' })}`;
+  }
+  return { text, stale };
+}
+
+export function renderCardHTML(creator, { forPDF = false, justCreated = false, justSaved = false, isOwner = false } = {}) {
+  // Decay Rule calculation (7-day visual downgrade) — kept for back-compat,
+  // but the visible decay signal now lives in the hero-bar freshness slot
+  // (formatFreshness) rather than the old grey-out + .dated-badge band.
   const statsDate = creator.statsUpdatedAt ? new Date(creator.statsUpdatedAt) : null;
-  const daysOld = statsDate ? Math.floor((Date.now() - statsDate) / (1000 * 60 * 60 * 24)) : 0;
-  const isDated = daysOld > 7;
-  const datedLabel = statsDate ? `Dated (last updated ${statsDate.toLocaleDateString('en-ZA', { day:'numeric', month:'short' })})` : '';
+  const freshness = formatFreshness(creator.statsUpdatedAt);
 
   // Platform data — support both old (ig/tt/yt) and new (fb) structure
   const ig  = creator.platforms?.instagram || creator.platformsOld?.instagram || {};
@@ -725,10 +1202,12 @@ export function renderCardHTML(creator, { forPDF = false, justCreated = false, j
   const yt  = creator.platforms?.youtube   || creator.platformsOld?.youtube   || {};
   const fb  = creator.platforms?.facebook  || {};
 
-  // Name split — first upright, last in italic (Cormorant Garamond)
-  const nameParts = (creator.name || '').trim().split(' ');
-  const firstName = esc(nameParts[0] || 'Your');
-  const lastName  = esc(nameParts.slice(1).join(' ') || 'Name');
+  // Name split — first upright, last in italic (Cormorant Garamond).
+  // Prefer nameDetails (from dedicated First name + Surname form fields)
+  // over the legacy single-string whitespace split, which breaks on
+  // compound surnames ("Van Wyk") and single-name entries.
+  const firstName = esc(creator.nameDetails?.first || (creator.name || '').trim().split(' ')[0] || 'Your');
+  const lastName  = esc(creator.nameDetails?.last  || (creator.name || '').trim().split(' ').slice(1).join(' ') || '');
 
   // Bio paragraphs — prefer new bioParagraphs[], fallback to bio string split
   const bioParagraphs = creator.bioParagraphs?.length
@@ -795,11 +1274,12 @@ export function renderCardHTML(creator, { forPDF = false, justCreated = false, j
   <title>${esc(kitTitle)}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   ${ogMeta({ title: kitTitle, description: kitDesc, image: kitImage, url: kitUrl, type: 'profile' })}
+  <link rel="canonical" href="${esc(kitUrl)}">
+  ${creatorJSONLD(creator)}
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <meta name="theme-color" content="#0a0a0a">
   <style>${localFonts()}</style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     :root {
       --paper: #f0ece4;
@@ -829,7 +1309,7 @@ export function renderCardHTML(creator, { forPDF = false, justCreated = false, j
     .wrap { max-width: 1080px; margin: 0 auto; padding: 0 2.5rem; }
 
     /* ── HERO ── */
-    .hero { position: relative; min-height: 100svh; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
+    .hero { position: relative; height: 100svh; min-height: 560px; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
     .hero-photo-side { position: relative; overflow: hidden; }
     .hero-photo { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
     .hero-photo--empty { background: var(--deep); display: flex; align-items: center; justify-content: center; }
@@ -852,7 +1332,14 @@ export function renderCardHTML(creator, { forPDF = false, justCreated = false, j
     }
     .hero-bar { position: absolute; top: 0; left: 0; right: 0; padding: 2rem 3.5rem; display: flex; justify-content: space-between; align-items: center; z-index: 2; }
     .kit-label { font-size: 0.56rem; font-weight: 500; letter-spacing: 0.28em; text-transform: uppercase; color: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.09); padding: 0.32rem 0.75rem; border-radius: 100px; }
-    .chq-mark  { font-size: 0.54rem; font-weight: 500; letter-spacing: 0.32em; text-transform: uppercase; color: rgba(255,255,255,0.13); }
+    /* Freshness slot — replaces the dim duplicate "CreatorHQ" wordmark.
+       White at full opacity to read as a live signal to brands. A 6px dot
+       sits left of the text: green for fresh (≤7d), amber when stale.    */
+    .chq-fresh { display:inline-flex; align-items:center; gap:0.45rem; font-size: 0.6rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: #fff; }
+    .chq-fresh__dot { width:6px; height:6px; border-radius:50%; background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,0.18); }
+    .chq-fresh--stale { color: #f59e0b; }
+    .chq-fresh--stale .chq-fresh__dot { background:#f59e0b; box-shadow:0 0 0 3px rgba(245,158,11,0.2); }
+    @media print { .chq-fresh__dot { box-shadow:none; } }
     .hero-name { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-size: clamp(3rem, 5vw, 5.5rem); line-height: 0.92; color: var(--white); letter-spacing: -0.01em; position: relative; z-index: 2; }
     .hero-name em { font-style: italic; color: rgba(255,255,255,0.35); }
     .hero-rule { width: 24px; height: 1px; background: rgba(255,255,255,0.25); margin: 2rem 0 1.5rem; position: relative; z-index: 2; }
@@ -970,8 +1457,8 @@ export function renderCardHTML(creator, { forPDF = false, justCreated = false, j
       .wrap { padding: 0 1.25rem; }
 
       /* ── Hero ── */
-      .hero { grid-template-columns: 1fr; }
-      .hero-photo-side { height: 75vw; min-height: 300px; }
+      .hero { grid-template-columns: 1fr; min-height: 0; }
+      .hero-photo-side { height: auto; aspect-ratio: 4/5; min-height: 0; }
       .hero-text { padding: 2rem 1.5rem 3rem; min-height: auto; }
       .hero-name { font-size: 2.8rem; }
       .hero-reach { gap: 1.5rem; flex-wrap: wrap; }
@@ -1043,18 +1530,10 @@ export function renderCardHTML(creator, { forPDF = false, justCreated = false, j
 </head>
 <body>
 
-${forPDF ? '' : renderSiteHeader({
-  current: 'kit',
-  back: { href: '/', label: 'Home' },
-  theme: 'on-light'
-})}
+${forPDF ? '' : renderSiteHeader({ current: 'kit' })}
 
 ${(!forPDF && justCreated) ? renderCreatedBanner(creator, 'Media kit') : ''}
 ${(!forPDF && justSaved && !justCreated) ? renderSavedBanner() : ''}
-
-<!-- ── DATED OVERLAY ── -->
-<div class="${isDated ? 'is-dated' : ''}">
-  ${isDated ? `<div class="dated-badge">${datedLabel}</div>` : ''}
 
 <!-- ── HERO / COVER ── -->
 <header class="hero">
@@ -1066,7 +1545,12 @@ ${(!forPDF && justSaved && !justCreated) ? renderSavedBanner() : ''}
   <div class="hero-text">
     <div class="hero-bar">
       <span class="kit-label">Media Kit · ${year}</span>
-      <span class="chq-mark">CreatorHQ</span>
+      ${freshness
+        ? `<span class="chq-fresh${freshness.stale ? ' chq-fresh--stale' : ''}" title="${esc(statsDate ? statsDate.toLocaleDateString('en-ZA', { day:'numeric', month:'short', year:'numeric' }) : '')}">
+            <span class="chq-fresh__dot" aria-hidden="true"></span>
+            <span>${esc(freshness.stale ? 'Outdated · ' + freshness.text : freshness.text)}</span>
+          </span>`
+        : `<span class="chq-fresh"><span class="chq-fresh__dot" aria-hidden="true"></span><span>New</span></span>`}
     </div>
     <div class="hero-name fade-up d1">${firstName}<br><em>${lastName}</em></div>
     <div class="hero-rule fade-up d2"></div>
@@ -1157,8 +1641,7 @@ ${activePlatforms.length > 0 ? `
           </div>
           ${b.evidence?.length ? `
           <div id="evidence-${i}" class="brand-evidence">
-            <div class="eyebrow-dark" style="margin-bottom:0.5rem;">Evidence links</div>
-            ${b.evidence.map(link => `<a href="${esc(link)}" target="_blank" class="evidence-link">${esc(link)}</a>`).join('')}
+            ${b.evidence.map(link => `<a href="${esc(link)}" target="_blank" rel="noopener" class="evidence-link">↗ ${esc(platformLabel(link))}</a>`).join('')}
           </div>` : ''}`).join('')}
         </div>` : `<p style="margin-top:2rem;font-size:0.84rem;color:var(--dusk);">Add brand collaborations when editing your card.</p>`}
       </div>
@@ -1257,7 +1740,7 @@ ${audience ? `
       </div>
     </div>
     <div class="footer-bottom">
-      <div class="footer-credit">Generated by <span>CreatorHQ</span> · Simulacra ecosystem</div>
+      <div class="footer-credit">Generated by <span>CreatorHQ</span></div>
       <div class="footer-ts">
         <div class="ts-dot"></div>
         <span id="ts-text"></span>
@@ -1265,7 +1748,6 @@ ${audience ? `
     </div>
   </div>
 </footer>
-</div>
 
 <!-- ── FLOATING ACTION BAR ── -->
 <!--
@@ -1280,20 +1762,32 @@ ${audience ? `
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
     <span>Copy Link</span>
   </button>
-  <div class="bar-divider"></div>
+  ${isOwner ? `<div class="bar-divider"></div>
   <a href="/c/${esc(creator.id)}/edit" style="display:flex;align-items:center;gap:0.45rem;color:rgba(255,255,255,0.7);text-decoration:none;font-family:'Instrument Sans',sans-serif;font-size:0.7rem;font-weight:400;letter-spacing:0.06em;padding:0.3rem 0.6rem;border-radius:100px;white-space:nowrap;transition:color 0.15s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
     <span>Edit</span>
   </a>
   <div class="bar-divider"></div>
+  <a href="/c/${esc(creator.id)}?as=visitor" title="See your kit the way a visitor sees it" style="display:flex;align-items:center;gap:0.45rem;color:rgba(255,255,255,0.7);text-decoration:none;font-family:'Instrument Sans',sans-serif;font-size:0.7rem;font-weight:400;letter-spacing:0.06em;padding:0.3rem 0.6rem;border-radius:100px;white-space:nowrap;transition:color 0.15s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+    <span>As Visitor</span>
+  </a>
+  <div class="bar-divider"></div>
+  <form method="post" action="/c/${esc(creator.id)}/signout" style="margin:0;padding:0;display:flex;">
+    <button type="submit" title="Stop editing on this device" style="display:flex;align-items:center;gap:0.45rem;color:rgba(255,255,255,0.55);font-family:'Instrument Sans',sans-serif;font-size:0.7rem;font-weight:400;letter-spacing:0.06em;padding:0.3rem 0.6rem;border-radius:100px;white-space:nowrap;transition:color 0.15s;background:none;border:none;cursor:pointer;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.55)'">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      <span>Sign out</span>
+    </button>
+  </form>` : ''}
+  <div class="bar-divider"></div>
   <a href="/c/${esc(creator.id)}/rate-card" style="display:flex;align-items:center;gap:0.45rem;color:rgba(255,255,255,0.7);text-decoration:none;font-family:'Instrument Sans',sans-serif;font-size:0.7rem;font-weight:400;letter-spacing:0.06em;padding:0.3rem 0.6rem;border-radius:100px;white-space:nowrap;transition:color 0.15s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">
     Rate Card →
   </a>
   <div class="bar-divider"></div>
-  <button id="pdf-btn" onclick="downloadKitPDF()" style="display:flex;align-items:center;gap:0.45rem;color:rgba(255,255,255,0.7);font-family:'Instrument Sans',sans-serif;font-size:0.7rem;font-weight:400;letter-spacing:0.06em;padding:0.3rem 0.6rem;border-radius:100px;white-space:nowrap;transition:color 0.15s;background:none;border:none;cursor:pointer;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">
+  <a href="/c/${esc(creator.id)}/pdf" target="_blank" rel="noopener" id="pdf-btn" style="display:flex;align-items:center;gap:0.45rem;color:rgba(255,255,255,0.7);font-family:'Instrument Sans',sans-serif;font-size:0.7rem;font-weight:400;letter-spacing:0.06em;text-decoration:none;padding:0.3rem 0.6rem;border-radius:100px;white-space:nowrap;transition:color 0.15s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     <span>Download PDF</span>
-  </button>
+  </a>
 </div>
 
 ${renderNudge(creator)}
@@ -1321,19 +1815,8 @@ ${renderNudge(creator)}
     });
   }
 
-  // PDF is client-side via html2pdf — captures the whole scrollable page as a multi-page A4.
-  function downloadKitPDF() {
-    const bar = document.getElementById('action-bar');
-    bar.style.display = 'none';
-    html2pdf().set({
-      margin: 0,
-      filename: '${firstName}-${lastName}-MediaKit.pdf',
-      image: { type: 'jpeg', quality: 0.95 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#f0ece4' },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
-      pagebreak: { mode: ['css', 'legacy'] }
-    }).from(document.body).save().then(() => { bar.style.display = 'flex'; });
-  }
+  // PDF: opens /c/${esc(creator.id)}/pdf in a new tab.
+  // That route serves renderPDFHTML which auto-triggers html2canvas + jsPDF on load.
 </script>
 </body>
 </html>`;
@@ -1346,9 +1829,8 @@ ${renderNudge(creator)}
 // Page 3: Audience + Brands + Packages + Rates + Footer
 
 export function renderPDFHTML(creator, photoBase64 = null) {
-  const nameParts = (creator.name || '').trim().split(' ');
-  const firstName = esc(nameParts[0] || 'Your');
-  const lastName  = esc(nameParts.slice(1).join(' ') || 'Name');
+  const firstName = esc(creator.nameDetails?.first || (creator.name || '').trim().split(' ')[0] || 'Your');
+  const lastName  = esc(creator.nameDetails?.last  || (creator.name || '').trim().split(' ').slice(1).join(' ') || '');
   const role      = creator.niche    || 'Digital Content Creator';
   const subtitle  = creator.subtitle || '';
   const location  = creator.location || '';
@@ -1375,10 +1857,54 @@ export function renderPDFHTML(creator, photoBase64 = null) {
   const brands   = creator.brands?.length
     ? creator.brands.map(b => ({ brand: b.name, note: b.category }))
     : (creator.workPreview || []);
-  const packages = creator.packages || [];
-  const rates    = creator.rates    || [];
+  const packages   = creator.packages   || [];
+  const rates      = creator.customRates || []; // customRates is the [{label,amount}] array
+
+  // Tagline display: "From Tembisa. For everyone." →
+  //   "From <em>Tembisa.</em><br>For everyone."
+  const tagStr = creator.tagline || '';
+  let taglineDisplay;
+  if (tagStr.startsWith('From ')) {
+    const firstDot = tagStr.indexOf('.');
+    const locPart  = esc(tagStr.slice(5, firstDot >= 0 ? firstDot : undefined));
+    const restPart = firstDot >= 0 ? esc(tagStr.slice(firstDot + 1).trim()) : '';
+    taglineDisplay = `From <em>${locPart}.</em>${restPart ? `<br>${restPart}` : ''}`;
+  } else {
+    const parts = tagStr.split(/\.\s+/);
+    taglineDisplay = parts.map((p, i) => {
+      const t = esc(p) + (i < parts.length - 1 ? '.' : '');
+      return i === 0 ? `<em>${t}</em>` : t;
+    }).join('<br>');
+  }
+
+  // Role labels: niche + subtitle split on · or -
+  const roles = [
+    creator.niche,
+    ...(creator.subtitle?.split(/[·\-]/).map(s => s.trim()).filter(Boolean) || [])
+  ].filter(Boolean);
+
+  // Location tags: audience.locations names + city from creator.location
+  const cityFromLocation = location ? location.split(',')[0].trim() : '';
+  const locNames = (audience?.locations || []).map(l => typeof l === 'object' ? l.name : String(l));
+  const locationTags = [...(cityFromLocation ? [cityFromLocation] : []), ...locNames]
+    .filter((v, i, a) => v && a.indexOf(v) === i); // deduplicate
 
   const photoSrc = photoBase64 || (creator.photo?.url ? esc(creator.photo.url) : '');
+
+  // Paper-first content limits — PDF is a teaser, not a transcript
+  const bioShort = (() => {
+    const full = bioParagraphs.join(' ');
+    return full.length > 200 ? full.slice(0, 200) + '…' : full;
+  })();
+  const brandsLine    = brands.slice(0, 5).map(b => esc(b.brand)).join(' · ');
+  const ratesGrid     = rates.slice(0, 4);
+  const packagesShort = packages.slice(0, 2);
+
+  // Contact fields for footer — strip leading @ so we control the prefix
+  const igHandle     = (creator.platforms?.instagram?.handle || '').replace(/^@/, '');
+  const ttHandle     = (creator.platforms?.tiktok?.handle    || '').replace(/^@/, '');
+  const contactEmail = creator.email || creator.contact?.email || '';
+  const contactWa    = creator.contact?.whatsapp || creator.contact?.phone || '';
 
   return `<!doctype html>
 <html lang="en">
@@ -1399,608 +1925,654 @@ export function renderPDFHTML(creator, photoBase64 = null) {
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { background: var(--paper); }
-    body { font-family: 'Instrument Sans', sans-serif; font-weight: 300; font-size: 10pt; line-height: 1.6; color: var(--deep); -webkit-font-smoothing: antialiased; }
+    html, body { background: #888; }
+    body { font-family: 'Instrument Sans', sans-serif; font-weight: 300; color: var(--deep); -webkit-font-smoothing: antialiased; }
 
-    /* ── PAGE CONSTRAINTS ── */
+    @page { size: A4 portrait; margin: 0; }
+
+    /* ── SINGLE A4 PAGE — 794×1123px ──
+       6 horizontal bands summing to exactly 1123px:
+       Hero(390) + Bio(155) + Audience(145) + Rates(165) + Packages(165) + Footer(103) = 1123 */
     .page {
       width: 794px;
       height: 1123px;
       overflow: hidden;
       position: relative;
-      page-break-after: always;
+      display: flex;
+      flex-direction: column;
     }
-    .page:last-child { page-break-after: auto; }
 
-    @page { size: A4; margin: 0; }
-    @media print { .page { page-break-after: always; } }
+    /* ── PLACEHOLDER utility ── */
+    .ph {
+      font-size: 6.5pt;
+      font-style: italic;
+      color: var(--smoke);
+      border: 1px dashed var(--line);
+      padding: 7px 10px;
+      border-radius: 2px;
+      line-height: 1.4;
+    }
+    .ph--dark {
+      color: rgba(255,255,255,0.18);
+      border-color: rgba(255,255,255,0.1);
+    }
 
-    /* ── PAGE 1: COVER ── */
-    .cover {
+    /* ═══════════════════════════════════════
+       BAND 1 — HERO STRIP (390px)
+       Photo left (317px) · Info right (477px)
+    ════════════════════════════════════════ */
+    .hero-strip {
+      height: 390px;
+      flex-shrink: 0;
       display: grid;
-      grid-template-columns: 365px 1fr;
-      height: 1123px;
+      grid-template-columns: 317px 1fr;
+      overflow: hidden;
     }
-    .cover__photo {
-      width: 365px;
-      height: 1123px;
+    .hero-photo {
+      width: 317px;
+      height: 390px;
       overflow: hidden;
       background: var(--deep);
+      background-size: cover;
+      background-position: center top;
+      background-repeat: no-repeat;
+      position: relative;
     }
-    .cover__photo img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      object-position: center top;
-      display: block;
+    .hero-initials {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 64pt;
+      font-weight: 300;
+      color: rgba(255,255,255,0.12);
+      letter-spacing: -0.02em;
     }
-    .cover__panel {
+    .hero-panel {
       background: var(--ink);
       display: flex;
       flex-direction: column;
-      justify-content: flex-end;
-      padding: 48px 44px;
-      position: relative;
+      padding: 26px 32px;
+      overflow: hidden;
     }
-    .cover__bar {
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      padding: 28px 44px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .cover__kit-label {
-      font-size: 6pt;
+    .hero-kit-tag {
+      font-size: 5.5pt;
       font-weight: 500;
       letter-spacing: 0.28em;
       text-transform: uppercase;
-      color: rgba(255,255,255,0.2);
-      border: 1px solid rgba(255,255,255,0.09);
-      padding: 4px 10px;
+      color: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 3px 9px;
       border-radius: 100px;
+      display: inline-block;
+      align-self: flex-start;
     }
-    .cover__chq {
-      font-size: 6pt;
-      font-weight: 500;
-      letter-spacing: 0.32em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.13);
-    }
-    .cover__name {
+    .hero-name {
       font-family: 'Cormorant Garamond', serif;
       font-weight: 300;
-      font-size: 52pt;
-      line-height: 0.92;
+      font-size: 40pt;
+      line-height: 0.95;
       color: var(--white);
       letter-spacing: -0.01em;
+      margin-top: auto;
+      margin-bottom: 10px;
     }
-    .cover__name em { font-style: italic; color: rgba(255,255,255,0.3); }
-    .cover__rule { width: 20px; height: 1px; background: rgba(255,255,255,0.2); margin: 20px 0 14px; }
-    .cover__descriptor {
-      font-size: 6pt;
+    .hero-name em { font-style: italic; color: rgba(255,255,255,0.28); }
+    .hero-rule { width: 16px; height: 1px; background: rgba(255,255,255,0.18); margin-bottom: 9px; }
+    .hero-descriptor {
+      font-size: 5.5pt;
       font-weight: 400;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: rgba(255,255,255,0.28);
-      line-height: 2.2;
-      margin-bottom: 28px;
+      color: rgba(255,255,255,0.22);
+      line-height: 2.1;
+      margin-bottom: 16px;
     }
-    .cover__reach {
+    .hero-stats {
       display: flex;
-      gap: 24px;
-      padding-top: 20px;
-      border-top: 1px solid rgba(255,255,255,0.07);
+      gap: 20px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255,255,255,0.06);
     }
-    .reach-num {
+    .hero-stat-num {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 18pt;
+      font-size: 16pt;
       font-weight: 300;
       color: var(--white);
       line-height: 1;
     }
-    .reach-lbl {
-      font-size: 5.5pt;
-      font-weight: 500;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.18);
-      margin-top: 4px;
-    }
-
-    /* ── PAGE HEADER STRIP (pages 2+) ── */
-    .page-header {
-      background: var(--deep);
-      padding: 14px 48px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .page-header__label {
-      font-size: 6pt;
-      font-weight: 500;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.35);
-    }
-    .page-header__num {
-      font-size: 6pt;
-      letter-spacing: 0.2em;
-      color: rgba(255,255,255,0.2);
-    }
-
-    /* ── PAGE 2: BIO ── */
-    .bio-layout {
-      display: grid;
-      grid-template-columns: 200px 1fr;
-      gap: 48px;
-      padding: 44px 48px;
-      background: var(--paper);
-    }
-    .bio-sidebar__title {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 26pt;
-      font-weight: 300;
-      line-height: 1.05;
-      color: var(--deep);
-      margin-top: 10px;
-    }
-    .bio-sidebar__title em { font-style: italic; color: var(--dusk); }
-    .bio-sidebar__rule { width: 18px; height: 1px; background: rgba(0,0,0,0.15); margin: 14px 0; }
-    .bio-sidebar__sub { font-size: 7pt; color: var(--dusk); line-height: 2; }
-    .bio-body p { font-size: 8.5pt; color: var(--dusk); line-height: 1.85; margin-bottom: 10px; }
-    .pillar {
-      padding: 12px 0;
-      border-top: 1px solid var(--line);
-      display: grid;
-      grid-template-columns: 110px 1fr;
-      gap: 14px;
-      margin-top: 4px;
-    }
-    .pillar:last-child { border-bottom: 1px solid var(--line); }
-    .pillar__label {
-      font-size: 5.5pt;
+    .hero-stat-lbl {
+      font-size: 5pt;
       font-weight: 500;
       letter-spacing: 0.18em;
       text-transform: uppercase;
-      color: var(--smoke);
-      padding-top: 2px;
+      color: rgba(255,255,255,0.14);
+      margin-top: 3px;
     }
-    .pillar__text { font-size: 7.5pt; color: var(--dusk); line-height: 1.75; }
 
-    /* ── STATS STRIP (dark, page 2 bottom) ── */
-    .stats-strip {
-      background: var(--ink);
-      padding: 32px 48px;
+    /* ═══════════════════════════════════════
+       BAND 2 — BIO (155px, paper)
+       Tagline left · Bio text right
+    ════════════════════════════════════════ */
+    .bio-band {
+      height: 155px;
+      flex-shrink: 0;
+      display: grid;
+      grid-template-columns: 42% 58%;
+      background: var(--paper);
+      border-top: 1px solid var(--line);
+      overflow: hidden;
     }
-    .stats-strip__head {
+    .bio-band__left {
+      padding: 18px 18px 14px 32px;
+      border-right: 1px solid var(--line);
+      overflow: hidden;
       display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      padding-bottom: 18px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      margin-bottom: 0;
+      flex-direction: column;
+      justify-content: center;
     }
-    .stats-strip__eyebrow {
-      font-size: 5.5pt;
+    .bio-band__right {
+      padding: 18px 32px 14px 18px;
+      overflow: hidden;
+    }
+    .band-eyebrow {
+      font-size: 5pt;
       font-weight: 500;
       letter-spacing: 0.3em;
       text-transform: uppercase;
-      color: rgba(255,255,255,0.2);
+      color: var(--smoke);
+      margin-bottom: 8px;
     }
-    .stats-strip__title {
+    .bio-tagline {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 18pt;
+      font-size: 19pt;
       font-weight: 300;
-      color: var(--white);
+      line-height: 1.06;
+      color: var(--deep);
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
     }
-    .stats-strip__title em { font-style: italic; color: rgba(255,255,255,0.22); }
-    .stats-cells {
-      display: grid;
-      gap: 1px;
-      background: rgba(255,255,255,0.04);
-      margin-top: 1px;
+    .bio-tagline em { font-style: italic; color: var(--dusk); }
+    .bio-text {
+      font-size: 7.5pt;
+      color: var(--dusk);
+      line-height: 1.8;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      margin-bottom: 8px;
     }
-    .stat-cell {
-      background: var(--ink);
-      padding: 22px 24px;
+    .bio-pillars {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
     }
-    .stat-cell__platform {
-      font-size: 5.5pt;
-      font-weight: 500;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.3);
-      margin-bottom: 10px;
+    .bio-pillar-tag {
+      font-size: 5pt;
+      color: var(--dusk);
+      border: 1px solid var(--line);
+      padding: 2px 7px;
+      border-radius: 100px;
     }
-    .stat-cell__big {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 30pt;
-      font-weight: 300;
-      color: var(--white);
-      line-height: 1;
-    }
-    .stat-cell__unit {
-      font-size: 5.5pt;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.18);
-      margin-top: 3px;
-    }
-    .stat-cell__sep { width: 14px; height: 1px; background: rgba(255,255,255,0.07); margin: 12px 0; }
-    .stat-cell__sub { font-family: 'Cormorant Garamond', serif; font-size: 11pt; font-weight: 300; color: rgba(255,255,255,0.32); line-height: 1; }
-    .stat-cell__sub-lbl { font-size: 5pt; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.13); margin-top: 3px; }
 
-    /* ── PAGE 3: AUDIENCE + RATES ── */
-    .audience-section {
-      padding: 36px 48px;
-      background: var(--sand);
-    }
-    .aud-grid {
+    /* ═══════════════════════════════════════
+       BAND 3 — AUDIENCE (145px, sand)
+       Region + age left · Interests + brands right
+    ════════════════════════════════════════ */
+    .aud-band {
+      height: 145px;
+      flex-shrink: 0;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 0;
-      margin-top: 20px;
+      background: var(--sand);
+      border-top: 1px solid rgba(0,0,0,0.08);
+      overflow: hidden;
     }
-    .aud-col { padding-right: 32px; }
-    .aud-col + .aud-col { padding-left: 32px; padding-right: 0; border-left: 1px solid var(--smoke); }
-    .aud-label {
-      font-size: 5.5pt;
-      font-weight: 500;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      color: var(--dusk);
-      margin-bottom: 8px;
+    .aud-band__left {
+      padding: 16px 16px 12px 32px;
+      border-right: 1px solid rgba(0,0,0,0.07);
+      overflow: hidden;
     }
-    .aud-big {
+    .aud-band__right {
+      padding: 16px 32px 12px 16px;
+      overflow: hidden;
+    }
+    .aud-region {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 20pt;
+      font-size: 17pt;
       font-weight: 300;
       color: var(--deep);
-      line-height: 1.2;
-      margin-bottom: 8px;
+      line-height: 1;
+      margin-bottom: 5px;
     }
-    .aud-locs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; }
-    .aud-loc {
-      font-size: 6pt;
+    .aud-loc-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 7px; }
+    .aud-loc-tag {
+      font-size: 5pt;
       color: var(--dusk);
-      border: 1px solid var(--smoke);
-      padding: 2px 8px;
+      border: 1px solid rgba(0,0,0,0.14);
+      padding: 2px 6px;
       border-radius: 100px;
     }
     .aud-age {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 28pt;
+      font-size: 19pt;
       font-weight: 300;
       color: var(--deep);
       line-height: 1;
-      margin-top: 12px;
     }
-    .aud-age-sub { font-size: 6.5pt; color: var(--dusk); margin-top: 4px; }
-    .aud-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
-    .aud-tag {
-      font-size: 6pt;
+    .aud-age-lbl { font-size: 5.5pt; color: var(--dusk); margin-top: 2px; }
+    .aud-interest-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 8px; }
+    .aud-interest-tag {
+      font-size: 5pt;
       background: rgba(0,0,0,0.07);
       color: var(--deep);
-      padding: 2px 8px;
+      padding: 2px 6px;
       border-radius: 100px;
     }
-    .aud-note { font-size: 7.5pt; color: var(--dusk); line-height: 1.75; margin-top: 14px; }
-
-    /* ── BRANDS + PACKAGES ── */
-    .brands-rates {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 48px;
-      padding: 32px 48px;
-      background: var(--paper);
-    }
-    .section-eyebrow {
-      font-size: 5.5pt;
+    .aud-brands-lbl {
+      font-size: 5pt;
       font-weight: 500;
-      letter-spacing: 0.28em;
+      letter-spacing: 0.22em;
       text-transform: uppercase;
       color: var(--smoke);
-      margin-bottom: 8px;
+      margin-bottom: 3px;
     }
-    .section-heading {
+    .aud-brands-names { font-size: 6pt; color: var(--dusk); line-height: 1.65; }
+
+    /* ═══════════════════════════════════════
+       BAND 4 — RATES (165px, paper)
+       4-column rate menu across full width
+    ════════════════════════════════════════ */
+    .rates-band {
+      height: 165px;
+      flex-shrink: 0;
+      background: var(--paper);
+      border-top: 1px solid var(--line);
+      padding: 18px 32px 14px;
+      overflow: hidden;
+    }
+    .rates-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 1px;
+      background: var(--line);
+      margin-top: 10px;
+    }
+    .rate-cell {
+      background: var(--paper);
+      padding: 13px 14px 11px;
+    }
+    .rate-cell.ph-cell { background: var(--paper); opacity: 0.4; }
+    .rate-type {
+      font-size: 5pt;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--dusk);
+      margin-bottom: 6px;
+    }
+    .rate-price {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 16pt;
+      font-size: 15pt;
       font-weight: 300;
       color: var(--deep);
-      line-height: 1.1;
-      margin-bottom: 14px;
+      line-height: 1;
     }
-    .section-heading em { font-style: italic; color: var(--dusk); }
-    .brand-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 7px 0;
-      border-top: 1px solid var(--line);
+    .rate-note { font-size: 4.5pt; color: var(--smoke); margin-top: 2px; }
+
+    /* ═══════════════════════════════════════
+       BAND 5 — PACKAGES (165px, dark)
+       2-column package cards on dark ground
+    ════════════════════════════════════════ */
+    .pkg-band {
+      height: 165px;
+      flex-shrink: 0;
+      background: var(--deep);
+      border-top: 1px solid rgba(255,255,255,0.05);
+      padding: 18px 32px 14px;
+      overflow: hidden;
     }
-    .brand-row:last-child { border-bottom: 1px solid var(--line); }
-    .brand-name { font-family: 'Cormorant Garamond', serif; font-size: 12pt; font-weight: 300; color: var(--deep); }
-    .brand-type { font-size: 5.5pt; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--smoke); }
-    .pkg-stack { display: flex; flex-direction: column; gap: 1px; background: var(--line); }
-    .pkg {
-      background: var(--paper);
-      padding: 12px 14px;
+    .pkg-eyebrow {
+      font-size: 5pt;
+      font-weight: 500;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.18);
+      margin-bottom: 10px;
+    }
+    .pkg-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: rgba(255,255,255,0.08);
+    }
+    .pkg-card {
+      background: var(--deep);
+      padding: 11px 14px;
       display: grid;
       grid-template-columns: 1fr auto;
       align-items: start;
       gap: 8px;
+      overflow: hidden;
     }
-    .pkg.highlight { background: var(--deep); }
-    .pkg__name { font-family: 'Cormorant Garamond', serif; font-size: 10pt; font-weight: 300; color: var(--deep); margin-bottom: 3px; }
-    .pkg.highlight .pkg__name { color: rgba(255,255,255,0.9); }
-    .pkg__desc { font-size: 6pt; color: var(--dusk); line-height: 1.7; }
-    .pkg.highlight .pkg__desc { color: rgba(255,255,255,0.4); }
-    .pkg__price { font-family: 'Cormorant Garamond', serif; font-size: 11pt; font-weight: 300; color: var(--deep); white-space: nowrap; text-align: right; }
-    .pkg.highlight .pkg__price { color: rgba(255,255,255,0.65); }
-
-    /* ── RATES GRID ── */
-    .rates-section { padding: 0 48px 24px; background: var(--sand); }
-    .rates-grid {
-      display: grid;
-      gap: 1px;
-      background: var(--smoke);
+    .pkg-card.highlight { background: rgba(255,255,255,0.05); }
+    .pkg__name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 10pt;
+      font-weight: 300;
+      color: rgba(255,255,255,0.82);
+      margin-bottom: 3px;
     }
-    .rate-cell { background: var(--sand); padding: 16px 14px; }
-    .rate-type { font-size: 5.5pt; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dusk); margin-bottom: 8px; }
-    .rate-price { font-family: 'Cormorant Garamond', serif; font-size: 16pt; font-weight: 300; color: var(--deep); line-height: 1; }
-    .rate-note { font-size: 5.5pt; color: var(--smoke); margin-top: 3px; }
+    .pkg__desc { font-size: 5.5pt; color: rgba(255,255,255,0.45); line-height: 1.55; }
+    .pkg__price {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 10pt;
+      font-weight: 300;
+      color: rgba(255,255,255,0.65);
+      white-space: nowrap;
+      text-align: right;
+    }
 
-    /* ── FOOTER ── */
+    /* ═══════════════════════════════════════
+       BAND 6 — FOOTER COLOPHON (103px, darkest)
+    ════════════════════════════════════════ */
     .pdf-footer {
+      height: 103px;
+      flex-shrink: 0;
       background: var(--ink);
-      padding: 24px 48px 20px;
-    }
-    .pdf-footer__inner {
+      border-top: 1px solid rgba(255,255,255,0.04);
+      padding: 16px 32px 14px;
       display: flex;
-      align-items: flex-end;
+      align-items: center;
       justify-content: space-between;
+      overflow: hidden;
     }
     .pdf-footer__name {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 18pt;
+      font-size: 14pt;
       font-weight: 300;
       color: var(--white);
       line-height: 1;
     }
-    .pdf-footer__name em { font-style: italic; color: rgba(255,255,255,0.22); }
-    .pdf-footer__desc { font-size: 6pt; color: rgba(255,255,255,0.18); letter-spacing: 0.08em; margin-top: 6px; }
-    .pdf-footer__cta { font-family: 'Cormorant Garamond', serif; font-size: 9pt; font-style: italic; color: rgba(255,255,255,0.45); margin-bottom: 4px; text-align: right; }
-    .pdf-footer__contact { font-size: 6pt; color: rgba(255,255,255,0.2); text-align: right; }
-    .pdf-footer__bottom {
-      margin-top: 16px;
-      padding-top: 14px;
-      border-top: 1px solid rgba(255,255,255,0.05);
-      display: flex;
-      justify-content: space-between;
+    .pdf-footer__name em { font-style: italic; color: rgba(255,255,255,0.2); }
+    .pdf-footer__desc { font-size: 5.5pt; color: rgba(255,255,255,0.15); margin-top: 4px; letter-spacing: 0.05em; }
+    .pdf-footer__mid { text-align: center; }
+    .pdf-footer__cta {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 9pt;
+      font-style: italic;
+      color: rgba(255,255,255,0.35);
+      margin-bottom: 6px;
     }
-    .pdf-footer__credit { font-size: 5pt; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(255,255,255,0.1); }
-    .pdf-footer__credit span { color: rgba(255,255,255,0.22); }
-    .pdf-footer__date { font-size: 5pt; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.1); }
+    .pdf-footer__right { text-align: right; }
+    .pdf-footer__contact { font-size: 6.5pt; color: rgba(255,255,255,0.70); margin-bottom: 4px; letter-spacing: 0.02em; }
+    .pdf-footer__handle  { font-size: 5.5pt; color: rgba(255,255,255,0.45); margin-bottom: 2px; letter-spacing: 0.04em; }
+    .pdf-footer__meta { font-size: 4pt; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.08); margin-top: 4px; }
+    .pdf-footer__meta span { color: rgba(255,255,255,0.12); }
   </style>
 </head>
 <body>
 
 <!-- ═══════════════════════════════════════
-     PAGE 1 — COVER
+     SINGLE A4 PAGE — 6 HORIZONTAL BANDS
+     Hero(390) + Bio(155) + Audience(145) + Rates(165) + Packages(165) + Footer(103) = 1123px
 ════════════════════════════════════════ -->
-<div class="page">
-  <div class="cover">
-    <div class="cover__photo">
-      ${photoSrc ? `<img src="${photoSrc}" alt="${firstName} ${lastName}">` : ''}
-    </div>
-    <div class="cover__panel">
-      <div class="cover__bar">
-        <span class="cover__kit-label">Media Kit · ${year}</span>
-        <span class="cover__chq">CreatorHQ</span>
-      </div>
-      <div class="cover__name">${firstName}<br><em>${lastName}</em></div>
-      <div class="cover__rule"></div>
-      <div class="cover__descriptor">
-        ${esc(role)}${subtitle ? `<br>${esc(subtitle)}` : ''}${location ? `<br>${esc(location)}` : ''}
-      </div>
-      ${reach.length > 0 ? `
-      <div class="cover__reach">
-        ${reach.slice(0, 3).map(r => `
-        <div>
-          <div class="reach-num">${esc(r.val)}</div>
-          <div class="reach-lbl">${esc(r.lbl)}</div>
-        </div>`).join('')}
-      </div>` : ''}
-    </div>
-  </div>
-</div>
+<div class="page" id="page1">
 
-<!-- ═══════════════════════════════════════
-     PAGE 2 — BIO + STATS
-════════════════════════════════════════ -->
-<div class="page">
-  <div class="page-header">
-    <span class="page-header__label">About ${firstName}</span>
-    <span class="page-header__num">02 / 03</span>
-  </div>
+  <!-- ── BAND 1: HERO STRIP (390px) ── -->
+  <div class="hero-strip">
 
-  <div class="bio-layout">
-    <div>
-      <div style="font-size:5.5pt;font-weight:500;letter-spacing:0.3em;text-transform:uppercase;color:var(--smoke);">About</div>
-      <div class="bio-sidebar__title">
-        ${creator.tagline
-          ? esc(creator.tagline).split(',').map((t, i) => i === 0 ? `${t.trim()}.` : `<em>${t.trim()}.</em>`).join('<br>')
-          : `${firstName}.<br><em>${lastName}.</em>`}
-      </div>
-      <div class="bio-sidebar__rule"></div>
-      <div class="bio-sidebar__sub">
-        ${esc(role)}${subtitle ? `<br>${esc(subtitle)}` : ''}
-      </div>
+    <!-- Photo panel (317px) — background-image so html2canvas respects cover crop -->
+    <div class="hero-photo"${photoSrc ? ` style="background-image:url('${photoSrc}')"` : ''}>
+      ${!photoSrc
+        ? `<div class="hero-initials">${firstName ? firstName[0].toUpperCase() : ''}${lastName ? lastName[0].toUpperCase() : ''}</div>`
+        : ''
+      }
     </div>
-    <div>
-      <div class="bio-body">
-        ${bioParagraphs.map(p => `<p>${esc(p)}</p>`).join('')}
-      </div>
-      ${bioPillars.length > 0 ? `
-      <div style="margin-top:16px;">
-        ${bioPillars.map(p => `
-        <div class="pillar">
-          <div class="pillar__label">${esc(p.label)}</div>
-          <div class="pillar__text">${esc(p.text)}</div>
-        </div>`).join('')}
-      </div>` : ''}
+
+    <!-- Info panel (477px) -->
+    <div class="hero-panel">
+      <span class="hero-kit-tag">Media Kit · ${year}</span>
+      <div class="hero-name">${firstName}${lastName ? `<br><em>${lastName}</em>` : ''}</div>
+      <div class="hero-rule"></div>
+      <div class="hero-descriptor">${esc(role)}${subtitle ? `<br>${esc(subtitle)}` : ''}${location ? `<br>${esc(location)}` : ''}</div>
+      ${reach.length > 0
+        ? `<div class="hero-stats">
+            ${reach.slice(0, 3).map(r => `
+            <div>
+              <div class="hero-stat-num">${esc(r.val)}</div>
+              <div class="hero-stat-lbl">${esc(r.lbl)}</div>
+            </div>`).join('')}
+          </div>`
+        : `<div class="ph ph--dark">Add platform stats to show your reach.</div>`
+      }
     </div>
   </div>
 
-  ${statPlatforms.length > 0 ? `
-  <div class="stats-strip">
-    <div class="stats-strip__head">
-      <span class="stats-strip__eyebrow">Social Footprint</span>
-      <span class="stats-strip__title">Numbers <em>that move brands.</em></span>
+  <!-- ── BAND 2: BIO (155px) ── -->
+  <div class="bio-band">
+    <div class="bio-band__left">
+      <div class="band-eyebrow">About</div>
+      ${creator.tagline
+        ? `<div class="bio-tagline">${taglineDisplay}</div>`
+        : `<div class="ph">Add a tagline — your creative identity in one line.</div>`
+      }
     </div>
-    <div class="stats-cells" style="grid-template-columns:repeat(${statPlatforms.length},1fr);">
-      ${statPlatforms.map(p => `
-      <div class="stat-cell">
-        <div class="stat-cell__platform">${esc(p.name)}</div>
-        <div class="stat-cell__big">${esc(p.big)}</div>
-        <div class="stat-cell__unit">${esc(p.unit)}</div>
-        <div class="stat-cell__sep"></div>
-        <div class="stat-cell__sub">${esc(p.sub)}</div>
-        <div class="stat-cell__sub-lbl">${esc(p.subLbl)}</div>
-      </div>`).join('')}
-    </div>
-  </div>` : ''}
-</div>
-
-<!-- ═══════════════════════════════════════
-     PAGE 3 — AUDIENCE + BRANDS + RATES
-════════════════════════════════════════ -->
-<div class="page">
-  <div class="page-header">
-    <span class="page-header__label">Audience &amp; Rates</span>
-    <span class="page-header__num">03 / 03</span>
-  </div>
-
-  ${audience ? `
-  <div class="audience-section">
-    <div class="aud-grid">
-      <div class="aud-col">
-        <div class="aud-label">Primary Region</div>
-        <div class="aud-big">${esc(audience.primaryRegion || 'South Africa')}</div>
-        ${audience.locations?.length ? `<div class="aud-locs">${audience.locations.map(l => `<span class="aud-loc">${esc(l)}</span>`).join('')}</div>` : ''}
-        ${audience.ageGroup ? `
-        <div class="aud-label" style="margin-top:12px;">Core Age Group</div>
-        <div class="aud-age">${esc(audience.ageGroup)}</div>
-        <div class="aud-age-sub">${esc(audience.ageLabel || '')}</div>` : ''}
-      </div>
-      <div class="aud-col">
-        <div class="aud-label">Audience Interests</div>
-        ${audience.interests?.length ? `<div class="aud-tags">${audience.interests.map(t => `<span class="aud-tag">${esc(t)}</span>`).join('')}</div>` : ''}
-        ${audience.note ? `<div class="aud-note">${esc(audience.note)}</div>` : ''}
-      </div>
-    </div>
-  </div>` : ''}
-
-  <div class="brands-rates">
-    <div>
-      <div class="section-eyebrow">Worked With</div>
-      <div class="section-heading">Brands that<br><em>trust the culture.</em></div>
-      ${brands.map(b => `
-      <div class="brand-row">
-        ${b.url
-          ? `<a class="brand-name" href="${esc(b.url)}" style="color:inherit;text-decoration:none;border-bottom:1px solid var(--line);">${esc(b.brand)}</a>`
-          : `<span class="brand-name">${esc(b.brand)}</span>`}
-        <span class="brand-type">${esc(b.note || '')}</span>
-      </div>`).join('')}
-    </div>
-    <div>
-      <div class="section-eyebrow">Collaboration Packages</div>
-      <div class="section-heading">What we can<br><em>build together.</em></div>
-      ${packages.length > 0 ? `
-      <div class="pkg-stack">
-        ${packages.map(p => `
-        <div class="pkg${p.highlight ? ' highlight' : ''}">
-          <div>
-            <div class="pkg__name">${esc(p.name)}</div>
-            ${p.description ? `<div class="pkg__desc">${esc(p.description.replace(/\n/g, ' · '))}</div>` : ''}
-          </div>
-          <div class="pkg__price">${esc(p.price)}</div>
-        </div>`).join('')}
-      </div>` : ''}
+    <div class="bio-band__right">
+      ${bioShort
+        ? `<div class="bio-text">${esc(bioShort)}</div>`
+        : `<div class="ph">Add a bio to tell brands your story.</div>`
+      }
+      ${bioPillars.length > 0
+        ? `<div class="bio-pillars">
+            ${bioPillars.slice(0, 4).map(p => `<span class="bio-pillar-tag">${esc(p.label || p.text || p)}</span>`).join('')}
+          </div>`
+        : ''
+      }
     </div>
   </div>
 
-  ${rates.length > 0 ? `
-  <div class="rates-section">
-    <div class="rates-grid" style="grid-template-columns:repeat(${Math.min(rates.length,4)},1fr);">
-      ${rates.map(r => `
-      <div class="rate-cell">
-        <div class="rate-type">${esc(r.label)}</div>
-        <div class="rate-price">${esc(fmtCurrency(r.amount))}</div>
-        ${r.note ? `<div class="rate-note">${esc(r.note)}</div>` : ''}
-      </div>`).join('')}
+  <!-- ── BAND 3: AUDIENCE (145px) ── -->
+  <div class="aud-band">
+    <div class="aud-band__left">
+      <div class="band-eyebrow">Audience</div>
+      ${audience?.primaryRegion || locationTags.length
+        ? `<div class="aud-region">${esc(audience?.primaryRegion || locationTags[0] || 'South Africa')}</div>
+           ${locationTags.length
+             ? `<div class="aud-loc-tags">${locationTags.slice(0, 3).map(t => `<span class="aud-loc-tag">${esc(t)}</span>`).join('')}</div>`
+             : ''
+           }
+           ${audience?.ageGroup
+             ? `<div class="aud-age">${esc(audience.ageGroup)}</div>
+                <div class="aud-age-lbl">${esc(audience.ageLabel || 'Core age group')}</div>`
+             : ''
+           }`
+        : `<div class="ph">Add your audience region and demographics.</div>`
+      }
     </div>
-  </div>` : ''}
+    <div class="aud-band__right">
+      ${audience?.interests?.length
+        ? `<div class="band-eyebrow">Interests</div>
+           <div class="aud-interest-tags">
+             ${audience.interests.slice(0, 5).map(t => `<span class="aud-interest-tag">${esc(t)}</span>`).join('')}
+           </div>`
+        : `<div class="ph">Add audience interests to attract aligned brands.</div>`
+      }
+      ${brandsLine
+        ? `<div class="aud-brands-lbl">Worked With</div>
+           <div class="aud-brands-names">${brandsLine}</div>`
+        : `<div class="ph" style="margin-top:8px;">Brands you've worked with will appear here.</div>`
+      }
+    </div>
+  </div>
 
+  <!-- ── BAND 4: RATES (165px) ── -->
+  <div class="rates-band">
+    <div class="band-eyebrow">Content Rates</div>
+    <div class="rates-grid">
+      ${ratesGrid.length > 0
+        ? ratesGrid.map(r => `
+          <div class="rate-cell">
+            <div class="rate-type">${esc(r.label)}</div>
+            <div class="rate-price">${esc(fmtCurrency(r.amount))}</div>
+            ${r.note ? `<div class="rate-note">${esc(r.note)}</div>` : ''}
+          </div>`).join('')
+        : `<div class="rate-cell ph-cell" style="grid-column:1/-1;">
+             <div class="ph">Set your rates — brands need to know your value.</div>
+           </div>`
+      }
+      ${ratesGrid.length > 0 && ratesGrid.length < 4
+        ? Array(4 - ratesGrid.length).fill(0).map(() => `
+          <div class="rate-cell ph-cell">
+            <div class="rate-type" style="opacity:0.4;">—</div>
+            <div class="rate-price" style="opacity:0.2;">—</div>
+          </div>`).join('')
+        : ''
+      }
+    </div>
+  </div>
+
+  <!-- ── BAND 5: PACKAGES (165px) ── -->
+  <div class="pkg-band">
+    <div class="pkg-eyebrow">Collaboration Packages</div>
+    <div class="pkg-grid">
+      ${packagesShort.length > 0
+        ? packagesShort.map((p, i) => `
+          <div class="pkg-card${i === 0 ? ' highlight' : ''}">
+            <div>
+              <div class="pkg__name">${esc(p.name)}</div>
+              ${p.description ? `<div class="pkg__desc">${esc(p.description.replace(/\n/g, ' · ').slice(0, 90))}</div>` : ''}
+            </div>
+            <div class="pkg__price">${esc(p.price || '—')}</div>
+          </div>`).join('')
+        : `<div class="pkg-card" style="grid-column:1/-1;">
+             <div class="ph ph--dark">Add collaboration packages — give brands ready-made options.</div>
+           </div>`
+      }
+      ${packagesShort.length === 1
+        ? `<div class="pkg-card">
+             <div><div class="ph ph--dark">Add a second package.</div></div>
+           </div>`
+        : ''
+      }
+    </div>
+  </div>
+
+  <!-- ── BAND 6: FOOTER COLOPHON (103px) ── -->
   <div class="pdf-footer">
-    <div class="pdf-footer__inner">
-      <div>
-        <div class="pdf-footer__name">${firstName} <em>${lastName}</em></div>
-        <div class="pdf-footer__desc">${esc(role)}${location ? ` · ${esc(location)}, South Africa` : ''}</div>
-      </div>
-      <div>
-        <div class="pdf-footer__cta">Let's build something real.</div>
-        <div class="pdf-footer__contact">${esc(creator.email || creator.contact?.email || '')}</div>
-      </div>
+    <div>
+      <div class="pdf-footer__name">${firstName}${lastName ? ` <em>${lastName}</em>` : ''}</div>
+      <div class="pdf-footer__desc">${esc(role)}${location ? ` · ${esc(location)}` : ''}</div>
     </div>
-    <div class="pdf-footer__bottom">
-      <div class="pdf-footer__credit">Generated by <span>CreatorHQ</span> · Simulacra ecosystem</div>
-      <div class="pdf-footer__date">${new Date().toLocaleDateString('en-ZA', { day:'2-digit', month:'short', year:'numeric', timeZone:'Africa/Johannesburg' })}</div>
+    <div class="pdf-footer__mid">
+      <div class="pdf-footer__cta">Let's build something real.</div>
+    </div>
+    <div class="pdf-footer__right">
+      ${contactEmail
+        ? `<div class="pdf-footer__contact">${esc(contactEmail)}</div>`
+        : `<div class="ph ph--dark">Add contact email</div>`
+      }
+      ${contactWa ? `<div class="pdf-footer__handle">WA · ${esc(contactWa)}</div>` : ''}
+      ${igHandle  ? `<div class="pdf-footer__handle">IG · @${esc(igHandle)}</div>` : ''}
+      ${ttHandle  ? `<div class="pdf-footer__handle">TT · @${esc(ttHandle)}</div>` : ''}
+      <div class="pdf-footer__meta">Generated by <span>CreatorHQ</span> · <span id="ts-text"></span></div>
     </div>
   </div>
+
 </div>
 
+<!-- Auto-download: html2canvas + jsPDF captures each fixed A4 .page div individually.
+     Per doctrine: fixed A4 divs, NOT html2pdf().from(body). Timestamp baked at download time. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+(async function generatePDF() {
+  // Bake timestamp at download time
+  const tsEl = document.getElementById('ts-text');
+  if (tsEl) {
+    tsEl.textContent = new Date().toLocaleString('en-ZA', {
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+      timeZone: 'Africa/Johannesburg'
+    });
+  }
+
+  // Wait for fonts and images before capture
+  await document.fonts.ready;
+
+  const { jsPDF } = window.jspdf;
+  const pages = document.querySelectorAll('.page');
+  if (!pages.length) return;
+
+  const W = 794, H = 1123;
+  const pdf = new jsPDF({ unit: 'px', format: [W, H], orientation: 'portrait', compress: true });
+
+  for (let i = 0; i < pages.length; i++) {
+    const canvas = await html2canvas(pages[i], {
+      scale: 2,
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      width: W,
+      height: H,
+      windowWidth: W,
+      backgroundColor: '#f0ece4',
+    });
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    if (i > 0) pdf.addPage([W, H], 'portrait');
+    pdf.addImage(imgData, 'JPEG', 0, 0, W, H);
+  }
+
+  const slug = '${(firstName + (lastName ? '-' + lastName : '')).replace(/[^A-Za-z0-9]/g, '-').replace(/-+/g, '-')}';
+  pdf.save(slug + '-MediaKit.pdf');
+})();
+</script>
 </body>
 </html>`;
 }
 
 // ---- Rate Card (clean 1-pager) ----
 
-export function renderRateCardHTML(creator, { justCreated = false, justSaved = false } = {}) {
-  // Decay Rule calculation (7-day visual downgrade)
+export function renderRateCardHTML(creator, { justCreated = false, justSaved = false, isOwner = false } = {}) {
+  // Freshness signal — same model as the kit page. Stale at >7d.
   const statsDate = creator.statsUpdatedAt ? new Date(creator.statsUpdatedAt) : null;
-  const daysOld = statsDate ? Math.floor((Date.now() - statsDate) / (1000 * 60 * 60 * 24)) : 0;
-  const isDated = daysOld > 7;
-  const datedLabel = statsDate ? `Dated (last updated ${statsDate.toLocaleDateString('en-ZA', { day:'numeric', month:'short' })})` : '';
+  const freshness = formatFreshness(creator.statsUpdatedAt);
 
-  const nameParts = (creator.name || '').trim().split(' ');
-  const firstName = esc(nameParts[0] || 'Your');
-  const lastName  = esc(nameParts.slice(1).join(' ') || 'Name');
+  // Name — prefer nameDetails (dedicated First name + Surname form fields).
+  const firstName = esc(creator.nameDetails?.first || (creator.name || '').trim().split(' ')[0] || 'Your');
+  const lastName  = esc(creator.nameDetails?.last  || (creator.name || '').trim().split(' ').slice(1).join(' ') || '');
+  const fullName  = [firstName, lastName].filter(Boolean).join(' ');
+
   const role      = creator.niche    || 'Content Creator';
   const location  = creator.location || '';
-  const rates     = creator.customRates || creator.rates || [];
+  const contactEmail = creator.email || creator.contact?.email || '';
+  const rates     = creator.customRates || [];
   const rateHourly = creator.rates?.hourly || 0;
-  const ratePkgs = creator.rates?.packages || {};
+  const ratePkgs  = creator.rates?.packages || {};
   const packages  = creator.packages || [];
   const ig  = creator.platforms?.instagram || creator.platformsOld?.instagram || {};
   const tt  = creator.platforms?.tiktok    || creator.platformsOld?.tiktok    || {};
   const fb  = creator.platforms?.facebook  || {};
+  const photoUrl  = creator.photo?.url || '';
 
-  const platformStats = [
-    fb.followers ? `${fmtNum(fb.followers)}+ Facebook` : null,
-    tt.followers ? `${fmtNum(tt.followers)}+ TikTok`   : null,
-    ig.followers ? `${fmtNum(ig.followers)}+ Instagram` : null,
-  ].filter(Boolean);
+  // Top-3 platform stats for the cover panel stats row.
+  const coverStats = [
+    fb.followers ? { val: fmtNum(fb.followers) + '+', lbl: 'Facebook' }    : null,
+    tt.followers ? { val: fmtNum(tt.followers) + '+', lbl: 'TikTok' }      : null,
+    ig.followers ? { val: fmtNum(ig.followers) + '+', lbl: 'Instagram' }   : null,
+  ].filter(Boolean).slice(0, 3);
 
-  const year = new Date(creator.createdAt || Date.now()).getFullYear();
+  const year = new Date().getFullYear();
 
-  // Share-preview metadata for the rate card.
-  const rcTitle = `${firstName} ${lastName} · Rate Card`;
-  const rcDesc = creator.tagline
-    || `Rates for ${firstName} ${lastName}. ${creator.role || creator.niche || 'Creator'}.`;
-  const rcImage = creator.photo?.url ? absoluteUrl(creator.photo.url) : '';
-  const rcUrl = absoluteUrl(`/c/${creator.id}/rate-card`);
+  const rcTitle = `${fullName} · Rate Card`;
+  const rcDesc  = creator.tagline || `Rates for ${fullName}. ${role}.`;
+  const rcImage = photoUrl ? absoluteUrl(photoUrl) : '';
+  const rcUrl   = absoluteUrl(`/c/${creator.id}/rate-card`);
 
   return `<!doctype html>
 <html lang="en">
@@ -2013,138 +2585,516 @@ export function renderRateCardHTML(creator, { justCreated = false, justSaved = f
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <meta name="theme-color" content="#0a0a0a">
   <style>${localFonts()}</style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
+    /* ── Reset ── */
     *{margin:0;padding:0;box-sizing:border-box}
-    html,body{background:#ffffff;color:#0a0a0a;font-family:'Instrument Sans',sans-serif;font-weight:300;font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
-    .page{max-width:760px;margin:0 auto;padding:4rem 4rem 6rem}
-    .header{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:2.5rem;border-bottom:2px solid #0a0a0a;margin-bottom:3rem}
-    .name{font-family:'Cormorant Garamond',serif;font-size:3rem;font-weight:300;line-height:0.92}
-    .name em{font-style:italic;color:rgba(0,0,0,0.3)}
-    .header-right{text-align:right}
-    .label{font-size:0.55rem;font-weight:500;letter-spacing:0.3em;text-transform:uppercase;color:rgba(0,0,0,0.35)}
-    .role-line{font-size:0.8rem;color:rgba(0,0,0,0.5);margin-top:0.3rem}
-    .stats-bar{display:flex;gap:2.5rem;padding:1.5rem 0;border-bottom:1px solid rgba(0,0,0,0.1);margin-bottom:3rem}
-    .stat-item .num{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:300;line-height:1}
-    .stat-item .lbl{font-size:0.52rem;font-weight:500;letter-spacing:0.2em;text-transform:uppercase;color:rgba(0,0,0,0.3);margin-top:0.2rem}
-    .section-label{font-size:0.55rem;font-weight:500;letter-spacing:0.3em;text-transform:uppercase;color:rgba(0,0,0,0.35);margin-bottom:1.2rem}
-    .rates-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(0,0,0,0.08);margin-bottom:3rem}
-    .rate-cell{background:#fff;padding:1.8rem 1.5rem}
-    .rate-type{font-size:0.62rem;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;color:rgba(0,0,0,0.4);margin-bottom:0.8rem}
-    .rate-price{font-family:'Cormorant Garamond',serif;font-size:2.2rem;font-weight:300;line-height:1}
-    .rate-note{font-size:0.62rem;color:rgba(0,0,0,0.3);margin-top:0.3rem}
-    .packages-list{display:flex;flex-direction:column;gap:1px;background:rgba(0,0,0,0.08)}
-    .pkg-row{background:#fff;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center}
-    .pkg-row.highlight{background:#0a0a0a;color:#fff}
-    .pkg-name{font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:300}
-    .pkg-row.highlight .pkg-name{color:rgba(255,255,255,0.9)}
-    .pkg-desc{font-size:0.7rem;color:rgba(0,0,0,0.4);margin-top:0.2rem}
-    .pkg-row.highlight .pkg-desc{color:rgba(255,255,255,0.4)}
-    .pkg-price{font-family:'Cormorant Garamond',serif;font-size:1.2rem;font-weight:300;white-space:nowrap}
-    .pkg-row.highlight .pkg-price{color:rgba(255,255,255,0.7)}
-    .footer{margin-top:3rem;padding-top:2rem;border-top:1px solid rgba(0,0,0,0.1);display:flex;justify-content:space-between;align-items:center}
-    .footer-name{font-size:0.6rem;font-weight:500;letter-spacing:0.2em;text-transform:uppercase;color:rgba(0,0,0,0.3)}
-    .footer-contact{font-size:0.6rem;color:rgba(0,0,0,0.3)}
-    #action-bar{position:fixed;bottom:2rem;right:2rem;z-index:100;display:flex;align-items:center;background:#0a0a0a;border:1px solid rgba(255,255,255,0.1);border-radius:100px;padding:0.5rem 0.75rem;box-shadow:0 8px 32px rgba(0,0,0,0.25)}
-    #action-bar button,#action-bar a{display:flex;align-items:center;gap:0.4rem;background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.7);font-family:'Instrument Sans',sans-serif;font-size:0.7rem;font-weight:400;letter-spacing:0.06em;padding:0.3rem 0.6rem;border-radius:100px;text-decoration:none;transition:color 0.15s;white-space:nowrap}
-    #action-bar button:hover,#action-bar a:hover{color:#fff}
-    .bar-divider{width:1px;height:14px;background:rgba(255,255,255,0.12);margin:0 0.25rem}
-    @media print{#action-bar{display:none}}
+
+    /* ── Document viewer shell ───────────────────────────────────────────
+       Dark surround communicates "this is a document, not a webpage."
+       The body is the viewer; #rc-page is the paper floating inside it.
+       On mobile the surround collapses to black, paper goes full-width. */
+    html,body {
+      background: #1c1c1c;
+      color: #0a0a0a;
+      font-family: 'Instrument Sans', sans-serif;
+      font-weight: 300;
+      font-size: 15px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+
+    /* ── Viewer wrapper: centres the paper card with padding ── */
+    .rc-viewer {
+      padding: 2.5rem 1.5rem 6rem;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    /* ── Rate card "paper" ───────────────────────────────────────────────
+       Web + mobile: responsive, max 860px, content-height, paper shadow.
+       PDF export: JS forces width:794px + min-height:1123px on this div
+       before html2canvas capture, then restores. The grid columns are
+       also forced to 260px 1fr at export time.                          */
+    #rc-page {
+      width: 100%;
+      max-width: 860px;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      background: #f0ece4;
+      overflow: hidden;
+      box-shadow: 0 8px 48px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.3);
+      border-radius: 2px;
+    }
+
+    /* ── Left: photo panel ── */
+    .rc-photo-col {
+      background: #0a0a0a;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      overflow: hidden;
+      min-height: 480px;
+    }
+    .rc-photo {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+      opacity: 0.75;
+    }
+    .rc-photo-empty {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%);
+    }
+    /* Gradient overlay so text always reads on dark */
+    .rc-photo-col::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.18) 55%, transparent 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
+    .rc-photo-identity {
+      position: relative;
+      z-index: 2;
+      padding: 1.5rem 1.4rem 1.8rem;
+    }
+    .rc-photo-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-size: 1.75rem;
+      line-height: 1.0;
+      color: #f8f5f0;
+    }
+    .rc-photo-name em { font-style: italic; color: rgba(248,245,240,0.45); }
+    .rc-photo-role {
+      font-size: 0.54rem;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(248,245,240,0.38);
+      margin-top: 0.55rem;
+      line-height: 1.9;
+    }
+    .rc-stats-col {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-top: 1rem;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .rc-stat {
+      padding: 0.55rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .rc-stat .num {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.35rem;
+      font-weight: 300;
+      color: #f8f5f0;
+      line-height: 1;
+    }
+    .rc-stat .lbl {
+      font-size: 0.48rem;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(248,245,240,0.28);
+      margin-top: 0.15rem;
+    }
+
+    /* ── Right: document column ── */
+    .rc-doc-col {
+      background: #f0ece4;
+      display: flex;
+      flex-direction: column;
+      padding: 1.8rem 1.6rem 1.6rem;
+      min-height: 480px;
+    }
+
+    /* Document header */
+    .rc-doc-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 1rem;
+      border-bottom: 1.5px solid #0a0a0a;
+      margin-bottom: 1.4rem;
+    }
+    .rc-doc-title {
+      font-size: 0.5rem;
+      font-weight: 500;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      color: rgba(10,10,10,0.35);
+    }
+    .rc-fresh {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.5rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #0a0a0a;
+    }
+    .rc-fresh__dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #16a34a;
+    }
+    .rc-fresh--stale { color: #b45309; }
+    .rc-fresh--stale .rc-fresh__dot { background: #f59e0b; }
+
+    /* Section labels */
+    .rc-section-label {
+      font-size: 0.48rem;
+      font-weight: 500;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: rgba(10,10,10,0.35);
+      margin-bottom: 0.6rem;
+    }
+
+    /* Rates grid */
+    .rc-rates {
+      display: grid;
+      gap: 1px;
+      background: rgba(10,10,10,0.1);
+      margin-bottom: 1.2rem;
+    }
+    .rc-rate-cell {
+      background: #f0ece4;
+      padding: 0.9rem 0.85rem;
+    }
+    .rc-rate-type {
+      font-size: 0.5rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(10,10,10,0.4);
+      margin-bottom: 0.35rem;
+    }
+    .rc-rate-price {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.5rem;
+      font-weight: 300;
+      line-height: 1;
+      color: #0a0a0a;
+    }
+    .rc-rate-note {
+      font-size: 0.54rem;
+      color: rgba(10,10,10,0.35);
+      margin-top: 0.2rem;
+      line-height: 1.5;
+    }
+
+    /* Packages */
+    .rc-packages {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background: rgba(10,10,10,0.1);
+      margin-bottom: 1.2rem;
+    }
+    .rc-pkg {
+      background: #f0ece4;
+      padding: 0.8rem 0.85rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+    .rc-pkg.highlight { background: #0a0a0a; }
+    .rc-pkg__name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1rem;
+      font-weight: 300;
+      color: #0a0a0a;
+    }
+    .rc-pkg.highlight .rc-pkg__name { color: rgba(248,245,240,0.9); }
+    .rc-pkg__desc {
+      font-size: 0.58rem;
+      color: rgba(10,10,10,0.4);
+      margin-top: 0.1rem;
+      line-height: 1.5;
+    }
+    .rc-pkg.highlight .rc-pkg__desc { color: rgba(248,245,240,0.38); }
+    .rc-pkg__price {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1rem;
+      font-weight: 300;
+      white-space: nowrap;
+      flex-shrink: 0;
+      color: #0a0a0a;
+    }
+    .rc-pkg.highlight .rc-pkg__price { color: rgba(248,245,240,0.7); }
+
+    /* Footer — pinned to bottom of doc col */
+    .rc-doc-footer {
+      margin-top: auto;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(10,10,10,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-top: 1.5rem;
+    }
+    .rc-contact {
+      font-size: 0.58rem;
+      color: rgba(10,10,10,0.45);
+      line-height: 1.9;
+    }
+    .rc-credit {
+      font-size: 0.44rem;
+      font-weight: 500;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(10,10,10,0.18);
+      text-align: right;
+      line-height: 1.8;
+    }
+    .rc-credit span { color: rgba(10,10,10,0.32); }
+
+    /* ── Action bar ── */
+    #action-bar {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      background: #0a0a0a;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 100px;
+      padding: 0.5rem 0.75rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    }
+    #action-bar button,#action-bar a {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: rgba(255,255,255,0.7);
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 400;
+      letter-spacing: 0.06em;
+      padding: 0.3rem 0.6rem;
+      border-radius: 100px;
+      text-decoration: none;
+      transition: color 0.15s;
+      white-space: nowrap;
+    }
+    #action-bar button:hover,#action-bar a:hover { color: #fff; }
+    .bar-divider { width:1px; height:14px; background:rgba(255,255,255,0.12); margin:0 0.25rem; }
+
+    /* ── Mobile: single column below 640px ── */
+    @media (max-width: 640px) {
+      .rc-viewer { padding: 0 0 5rem; }
+      #rc-page {
+        grid-template-columns: 1fr;
+        box-shadow: none;
+        border-radius: 0;
+      }
+      .rc-photo-col {
+        min-height: 65vw;
+        max-height: 420px;
+      }
+      .rc-photo-identity { padding: 1.1rem 1.2rem 1.4rem; }
+      .rc-photo-name { font-size: 1.5rem; }
+      .rc-doc-col { padding: 1.4rem 1.2rem 1.4rem; min-height: auto; }
+      #action-bar {
+        bottom: 0;
+        right: 0;
+        left: 0;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        border-bottom: none;
+        overflow-x: auto;
+        scrollbar-width: none;
+        justify-content: flex-start;
+        padding: 0.5rem 0.75rem;
+      }
+      #action-bar::-webkit-scrollbar { display: none; }
+    }
+    @media print { #action-bar, .chq-nav, .rc-viewer-pad { display: none; } }
   </style>
 </head>
-<body class="${isDated ? 'is-dated' : ''}">
-${renderSiteHeader({
-  current: 'rate-card',
-  back: { href: `/c/${esc(creator.id)}`, label: 'Full kit' },
-  theme: 'on-light'
-})}
+<body>
+${renderSiteHeader({ current: 'rate-card' })}
 ${justCreated ? renderCreatedBanner(creator, 'Rate card') : ''}
 ${(justSaved && !justCreated) ? renderSavedBanner() : ''}
-${isDated ? `<div class="dated-badge">${datedLabel}</div>` : ''}
-<div class="page">
-  <div class="header">
-    <div>
-      <div class="label">Rate Card · ${year}</div>
-      <div class="name" style="margin-top:0.5rem">${firstName}<br><em>${lastName}</em></div>
-    </div>
-    <div class="header-right">
-      <div class="label">CreatorHQ</div>
-      <div class="role-line">${esc(role)}${location ? ` · ${esc(location)}` : ''}</div>
+
+<div class="rc-viewer">
+<div id="rc-page">
+  <!-- ── Left: photo + identity ── -->
+  <div class="rc-photo-col">
+    ${photoUrl
+      ? `<img class="rc-photo" src="${esc(photoUrl)}" alt="${esc(fullName)}">`
+      : `<div class="rc-photo-empty"></div>`}
+    <div class="rc-photo-identity">
+      <div class="rc-photo-name">${firstName}<br><em>${lastName}</em></div>
+      <div class="rc-photo-role">${esc(role)}${location ? `<br>${esc(location)}` : ''}</div>
+      ${coverStats.length > 0 ? `
+      <div class="rc-stats-col">
+        ${coverStats.map(s => `
+        <div class="rc-stat">
+          <div class="num">${esc(s.val)}</div>
+          <div class="lbl">${esc(s.lbl)}</div>
+        </div>`).join('')}
+      </div>` : ''}
     </div>
   </div>
 
-  ${platformStats.length > 0 ? `
-  <div class="stats-bar">
-    ${platformStats.map(s => `<div class="stat-item"><div class="num">${s.split(' ')[0]}</div><div class="lbl">${s.split(' ').slice(1).join(' ')}</div></div>`).join('')}
-  </div>` : ''}
+  <!-- ── Right: document ── -->
+  <div class="rc-doc-col">
+    <div class="rc-doc-header">
+      <div class="rc-doc-title">Rate Card · ${year}</div>
+      ${freshness
+        ? `<div class="rc-fresh${freshness.stale ? ' rc-fresh--stale' : ''}" title="${esc(statsDate ? statsDate.toLocaleDateString('en-ZA', { day:'numeric', month:'short', year:'numeric' }) : '')}">
+            <span class="rc-fresh__dot" aria-hidden="true"></span>
+            <span>${esc(freshness.stale ? 'Outdated · ' + freshness.text : freshness.text)}</span>
+           </div>`
+        : `<div class="rc-fresh"><span class="rc-fresh__dot" aria-hidden="true"></span><span>New</span></div>`}
+    </div>
 
-  ${rateHourly || Object.values(ratePkgs).some(v => v > 0) ? `
-  <div class="section-label">Collaboration Rates</div>
-  <div class="rates-grid" style="grid-template-columns:repeat(${1 + Object.values(ratePkgs).filter(v => v > 0).length},1fr)">
-    ${rateHourly ? `
-    <div class="rate-cell">
-      <div class="rate-type">Hourly Rate</div>
-      <div class="rate-price">${esc(fmtCurrency(rateHourly))}</div>
+    ${rateHourly || Object.values(ratePkgs).some(v => v > 0) ? `
+    <div class="rc-section-label">Collaboration Rates</div>
+    <div class="rc-rates" style="grid-template-columns:repeat(${1 + Object.values(ratePkgs).filter(v => v > 0).length},1fr)">
+      ${rateHourly ? `
+      <div class="rc-rate-cell">
+        <div class="rc-rate-type">Hourly Rate</div>
+        <div class="rc-rate-price">${esc(fmtCurrency(rateHourly))}</div>
+      </div>` : ''}
+      ${Object.entries(ratePkgs).filter(([_, v]) => v > 0).map(([k, v]) => `
+      <div class="rc-rate-cell">
+        <div class="rc-rate-type">${esc(k.toUpperCase())} Shoot</div>
+        <div class="rc-rate-price">${esc(fmtCurrency(v))}</div>
+      </div>`).join('')}
     </div>` : ''}
-    ${Object.entries(ratePkgs).filter(([_, v]) => v > 0).map(([k, v]) => `
-    <div class="rate-cell">
-      <div class="rate-type">${k.toUpperCase()} Shoot</div>
-      <div class="rate-price">${esc(fmtCurrency(v))}</div>
-    </div>`).join('')}
-  </div>` : ''}
 
-  ${rates.length > 0 ? `
-  <div class="section-label">Standard Rates</div>
-  <div class="rates-grid" style="grid-template-columns:repeat(${Math.min(rates.length,4)},1fr)">
-    ${rates.map(r => `
-    <div class="rate-cell">
-      <div class="rate-type">${esc(r.label)}</div>
-      <div class="rate-price">${esc(fmtCurrency(r.amount))}</div>
-      ${r.note ? `<div class="rate-note">${esc(r.note)}</div>` : ''}
-    </div>`).join('')}
-  </div>` : ''}
+    ${rates.length > 0 ? `
+    <div class="rc-section-label">Standard Rates</div>
+    <div class="rc-rates" style="grid-template-columns:repeat(${Math.min(rates.length, 3)},1fr)">
+      ${rates.map(r => `
+      <div class="rc-rate-cell">
+        <div class="rc-rate-type">${esc(r.label)}</div>
+        <div class="rc-rate-price">${esc(fmtCurrency(r.amount))}</div>
+        ${r.note ? `<div class="rc-rate-note">${esc(r.note)}</div>` : ''}
+      </div>`).join('')}
+    </div>` : ''}
 
-  ${packages.length > 0 ? `
-  <div class="section-label">Packages</div>
-  <div class="packages-list">
-    ${packages.map(p => `
-    <div class="pkg-row${p.highlight ? ' highlight' : ''}">
-      <div>
-        <div class="pkg-name">${esc(p.name)}</div>
-        ${p.description ? `<div class="pkg-desc">${esc(p.description.replace(/\n/g,' · '))}</div>` : ''}
+    ${packages.length > 0 ? `
+    <div class="rc-section-label">Packages</div>
+    <div class="rc-packages">
+      ${packages.map(p => `
+      <div class="rc-pkg${p.highlight ? ' highlight' : ''}">
+        <div>
+          <div class="rc-pkg__name">${esc(p.name)}</div>
+          ${p.description ? `<div class="rc-pkg__desc">${esc(p.description.replace(/\n/g, ' · '))}</div>` : ''}
+        </div>
+        <div class="rc-pkg__price">${esc(p.price)}</div>
+      </div>`).join('')}
+    </div>` : ''}
+
+    ${!rateHourly && !Object.values(ratePkgs).some(v => v > 0) && !rates.length && !packages.length ? `
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:3rem 0;">
+      <p style="font-size:0.8rem;color:rgba(10,10,10,0.3);text-align:center;max-width:24ch;line-height:1.8;">Rates not yet published.<br>Contact for pricing.</p>
+    </div>` : ''}
+
+    <div class="rc-doc-footer">
+      <div class="rc-contact">
+        ${contactEmail ? `<div>${esc(contactEmail)}</div>` : ''}
+        ${creator.handle ? `<div>${esc(creator.handle)}</div>` : ''}
       </div>
-      <div class="pkg-price">${esc(p.price)}</div>
-    </div>`).join('')}
-  </div>` : ''}
-
-  <div class="footer">
-    <div class="footer-name">${firstName} ${lastName}</div>
-    <div class="footer-contact">${esc(creator.email || creator.contact?.email || '')}</div>
+      <div class="rc-credit">Generated by <span>CreatorHQ</span><br>${new Date().toLocaleDateString('en-ZA', { day:'2-digit', month:'short', year:'numeric', timeZone:'Africa/Johannesburg' })}</div>
+         </div>
   </div>
 </div>
+</div><!-- /.rc-viewer -->
 
 <div id="action-bar">
-  <button onclick="navigator.clipboard.writeText(window.location.href).then(()=>{this.textContent='Copied';setTimeout(()=>this.textContent='Copy Link',2000)})">Copy Link</button>
-  <div class="bar-divider"></div>
+  <button id="rc-copy-btn" onclick="navigator.clipboard.writeText(window.location.href).then(()=>{const b=document.getElementById('rc-copy-btn');const o=b.textContent;b.textContent='Copied';setTimeout(()=>b.textContent=o,2000)})">Copy Link</button>
+  ${isOwner ? `<div class="bar-divider"></div>
   <a href="/c/${esc(creator.id)}/edit?rate-card=1">Edit</a>
+  <div class="bar-divider"></div>
+  <a href="/c/${esc(creator.id)}/rate-card?as=visitor" title="See your rate card the way a visitor sees it">As Visitor</a>
+  <div class="bar-divider"></div>
+  <form method="post" action="/c/${esc(creator.id)}/signout" style="margin:0;padding:0;display:inline-flex;">
+    <button type="submit" title="Stop editing on this device" style="background:none;border:none;color:inherit;font:inherit;cursor:pointer;padding:0;">Sign out</button>
+  </form>` : ''}
   <div class="bar-divider"></div>
   <a href="/c/${esc(creator.id)}">← Full Kit</a>
   <div class="bar-divider"></div>
-  <button onclick="downloadPDF()">Download PDF</button>
+  <button id="rc-dl-btn" onclick="downloadRateCardPDF()">Download PDF</button>
 </div>
 
-${renderNudge(creator)}
-
 <script>
-function downloadPDF(){
-  const bar=document.getElementById('action-bar');
-  bar.style.display='none';
-  html2pdf().set({
-    margin:0,filename:'${firstName}-${lastName}-RateCard.pdf',
-    image:{type:'jpeg',quality:0.98},
-    html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},
-    jsPDF:{unit:'mm',format:'a4',orientation:'portrait',compress:true}
-  }).from(document.body).save().then(()=>{bar.style.display='flex'});
+// Per the export skill: capture the fixed A4 div directly with html2canvas
+// + jsPDF. Do NOT use html2pdf().from(document.body) — that slices the full
+// scrollable body into arbitrary chunks. We capture #rc-page as one canvas.
+async function downloadRateCardPDF() {
+  const btn = document.getElementById('rc-dl-btn');
+  const bar = document.getElementById('action-bar');
+  btn.textContent = 'Generating…';
+  btn.disabled = true;
+  bar.style.display = 'none';
+
+  const { jsPDF } = window.jspdf;
+  const page = document.getElementById('rc-page');
+
+  // Force exact A4 dimensions + two-column grid for capture.
+  // Restore everything in the finally block regardless of error.
+  const prevW    = page.style.width;
+  const prevMinH = page.style.minHeight;
+  const prevGrid = page.style.gridTemplateColumns;
+  const prevBR   = page.style.borderRadius;
+  const prevBS   = page.style.boxShadow;
+  page.style.width               = '794px';
+  page.style.minHeight           = '1123px';
+  page.style.gridTemplateColumns = '260px 1fr';
+  page.style.borderRadius        = '0';
+  page.style.boxShadow           = 'none';
+
+  try {
+    const canvas = await html2canvas(page, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      width: 794,
+      height: 1123,
+      windowWidth: 794,
+      backgroundColor: '#f0ece4',
+    });
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.97);
+    const pdf = new jsPDF({ unit: 'px', format: [794, 1123], orientation: 'portrait' });
+    pdf.addImage(imgData, 'JPEG', 0, 0, 794, 1123);
+    pdf.save('${firstName.replace(/[^A-Za-z]/g, '')}-${lastName.replace(/[^A-Za-z]/g, '') || 'Creator'}-RateCard.pdf');
+  } finally {
+    page.style.width               = prevW;
+    page.style.minHeight           = prevMinH;
+    page.style.gridTemplateColumns = prevGrid;
+    page.style.borderRadius        = prevBR;
+    page.style.boxShadow           = prevBS;
+    bar.style.display = 'flex';
+    btn.textContent = 'Download PDF';
+    btn.disabled = false;
+  }
 }
 </script>
 </body>
@@ -2191,7 +3141,7 @@ export function renderFormHTML(creator = null, opts = {}) {
     : (isRate ? '/new' : '/new?rate-card=1');
   const toggleLabel = isRate ? 'Need the full media kit? →' : 'Just want a rate card? →';
 
-  return `<!doctype html>
+  if (isEdit) { return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -2261,33 +3211,30 @@ export function renderFormHTML(creator = null, opts = {}) {
       margin-bottom: 12px;
     }
   </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
 </head>
 <body>
-  ${renderSiteHeader({
-    current: 'form',
-    back: isEdit
-      ? { href: `/c/${esc(c.id)}`, label: 'Back to my kit' }
-      : { href: '/', label: 'Cancel' }
-  })}
+  ${renderSiteHeader({ current: 'form' })}
   <div class="wrap">
+    <a href="${isEdit ? `/c/${esc(c.id)}` : '/'}" style="display:inline-block;margin-top:24px;margin-bottom:24px;font-size:9pt;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);text-decoration:none;">← ${isEdit ? 'Back to my kit' : 'Cancel'}</a>
     <h1 class="display">${pageTitle}</h1>
     <p class="lede">${isRate
       ? 'A clean one-pager brands can read in 30 seconds. Platforms, rates, contact. Nothing else.'
       : 'The full story. Bio, audience, brands, packages, rates. Designed, shareable, PDF-ready.'}</p>
     <a href="${toggleHref}" style="display:inline-block;margin-bottom:32px;font-size:10pt;color:var(--muted);text-decoration:none;border-bottom:1px solid var(--rule);padding-bottom:2px;">${toggleLabel}</a>
 
-    <form action="${actionUrl}" method="post" enctype="multipart/form-data">
+    <form action="${actionUrl}" method="post" enctype="multipart/form-data" id="edit-form">
       <input type="hidden" name="mode" value="${mode}" />
       <fieldset>
         <legend>Identity</legend>
         <div class="row">
           <div>
-            <label>Full name</label>
-            <input name="name" type="text" required value="${esc(nameStr)}" />
+            <label>First name</label>
+            <input name="name_first" type="text" required placeholder="e.g. Khanyisile" value="${esc(c.nameDetails?.first || nameStr.split(' ')[0] || '')}" />
           </div>
           <div>
-            <label>Primary handle</label>
-            <input name="handle" type="text" placeholder="@yourname" value="${esc(c.handle)}" />
+            <label>Surname</label>
+            <input name="name_last" type="text" required placeholder="e.g. Khumalo" value="${esc(c.nameDetails?.last || nameStr.split(' ').slice(1).join(' ') || '')}" />
           </div>
         </div>
         <div class="row">
@@ -2298,6 +3245,12 @@ export function renderFormHTML(creator = null, opts = {}) {
           <div>
             <label>Location</label>
             <input name="location" type="text" placeholder="e.g. Johannesburg, London" value="${esc(c.location)}" />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>Primary handle <span style="text-transform:none;letter-spacing:0;font-weight:400;color:rgba(10,10,10,0.35);">(optional)</span></label>
+            <input name="handle" type="text" placeholder="@yourname" value="${esc(c.handle)}" />
           </div>
         </div>
         <label>Tagline</label>
@@ -2347,9 +3300,13 @@ export function renderFormHTML(creator = null, opts = {}) {
 
       <fieldset>
         <legend>Cover photo</legend>
-        <div class="photo-spec">Slot: 365 × 1123 px · portrait, full bleed</div>
-        <input name="photo" type="file" accept="image/*" />
-        <div class="hint">If your image isn't exactly this ratio, it'll be centre-cropped to fit.</div>
+        <input name="photo" type="file" accept="image/*" id="edit-photo-input" onchange="editPreviewPhoto(this)" />
+        <div id="edit-crop-zone" style="display:none;margin-top:14px;">
+          <img id="edit-crop-img" src="" alt="Crop preview" style="max-width:100%;display:block;" />
+          <p style="font-size:8pt;color:var(--muted);margin-top:6px;">Drag to position · pinch or scroll to zoom</p>
+          <button type="button" onclick="editResetPhoto()" style="font-size:9pt;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;font-family:inherit;margin-top:6px;display:block;">Choose different photo</button>
+        </div>
+        <div class="hint" style="margin-top:8px;">Drag to frame your face — we'll crop it to a tall portrait for your cover.</div>
       </fieldset>
 
       <fieldset>
@@ -2450,7 +3407,7 @@ export function renderFormHTML(creator = null, opts = {}) {
 
       <fieldset>
         <legend>Rates</legend>
-        <div class="hint" style="margin-top:0;margin-bottom:16px;">Label each deliverable clearly. Brands will read this line verbatim. Not sure what to charge? <a href="/calculator" style="color:var(--black);text-decoration:underline;">Try the rate calculator →</a></div>
+        <div class="hint" style="margin-top:0;margin-bottom:16px;">Label each deliverable clearly. Brands will read this line verbatim. Not sure what to charge? <a href="/calculator" target="_blank" rel="noopener" style="color:var(--black);text-decoration:underline;">Try the rate calculator →</a></div>
 
         <div id="rates">
           <div class="row" style="margin-bottom:1.5rem">
@@ -2557,8 +3514,48 @@ export function renderFormHTML(creator = null, opts = {}) {
 
       <fieldset>
         <legend>Contact</legend>
+
+        <label>Cell number</label>
+        <input name="phone" type="tel" placeholder="+27 82 000 0000" value="${esc(creator?.contact?.phone || '')}">
+
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400;margin-top:2px;">
+          <input type="checkbox" name="wa_same" id="wa-same"
+            onchange="document.getElementById('wa-field').style.display=this.checked?'none':'block'"
+            ${(!creator?.contact?.whatsapp || creator?.contact?.whatsapp === creator?.contact?.phone) ? 'checked' : ''}>
+          WhatsApp is the same number
+        </label>
+        <input name="whatsapp" type="tel" id="wa-field" placeholder="+27 82 000 0000"
+          value="${esc(creator?.contact?.whatsapp && creator.contact.whatsapp !== creator?.contact?.phone ? creator.contact.whatsapp : '')}"
+          style="display:${(!creator?.contact?.whatsapp || creator?.contact?.whatsapp === creator?.contact?.phone) ? 'none' : 'block'}">
+
         <label>Contact note <span class="hint">· shown next to email on the kit</span></label>
         <textarea name="contact_note" placeholder="e.g. For campaign briefs and partnership proposals reach out to discuss your brand goals">${esc(contactNote)}</textarea>
+      </fieldset>
+      ` : ''}
+
+      ${!isEdit ? `
+      <!-- Soft sign-in section. Recovery contact + DOB so the creator can edit
+           this kit later from a different device. We hash both fields server-side
+           with a per-record salt, never store the raw values. Honeypot + min-fill
+           timestamp included for bot protection. -->
+      <fieldset>
+        <legend>Recovery</legend>
+        <p class="hint" style="margin-top:0;margin-bottom:18px;">So you can edit this kit later from a different phone or laptop. We hash both fields before storing. Your raw details never persist.</p>
+
+        <label>Your contact <span class="hint">· email or SA cell</span></label>
+        <input name="recovery_contact" type="text" inputmode="email" autocomplete="email" placeholder="you@example.com  or  0821234567" required />
+
+        <label style="margin-top:18px;">Your date of birth <span class="hint">· DD / MM / YYYY</span></label>
+        <div class="dob-row" style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:8px;">
+          <input name="recovery_dob_d" type="text" inputmode="numeric" pattern="\\d*" maxlength="2" placeholder="DD" required aria-label="Day" />
+          <input name="recovery_dob_m" type="text" inputmode="numeric" pattern="\\d*" maxlength="2" placeholder="MM" required aria-label="Month" />
+          <input name="recovery_dob_y" type="text" inputmode="numeric" pattern="\\d*" maxlength="4" placeholder="YYYY" required aria-label="Year" />
+        </div>
+
+        <!-- Honeypot: hidden from humans, irresistible to bots. -->
+        <input name="hp_check" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;top:-9999px;opacity:0;pointer-events:none;" />
+        <!-- Form-rendered timestamp for the min-fill-time check. Set on render. -->
+        <input name="form_rendered_at" type="hidden" value="${Date.now()}" />
       </fieldset>
       ` : ''}
 
@@ -2567,6 +3564,28 @@ export function renderFormHTML(creator = null, opts = {}) {
       </div>
     </form>
   </div>
+
+  <script>
+    // Auto-advance focus across the DOB split fields. When the user fills DD
+    // (2 chars), focus moves to MM. When MM is filled, focus moves to YYYY.
+    // Backspace at the start of a field jumps back to the previous one.
+    (function() {
+      var dobInputs = document.querySelectorAll('input[name^="recovery_dob_"]');
+      if (!dobInputs.length) return;
+      dobInputs.forEach(function(el, i) {
+        el.addEventListener('input', function(e) {
+          if (el.value.length >= el.maxLength && i < dobInputs.length - 1) {
+            dobInputs[i + 1].focus();
+          }
+        });
+        el.addEventListener('keydown', function(e) {
+          if (e.key === 'Backspace' && el.value === '' && i > 0) {
+            dobInputs[i - 1].focus();
+          }
+        });
+      });
+    })();
+  </script>
 
   <script>
     function addRate(label = '', amount = '') {
@@ -2647,15 +3666,666 @@ export function renderFormHTML(creator = null, opts = {}) {
       if (el) el.classList.toggle('visible');
     }
 
+    // ── Edit form photo crop ──────────────────────────────────────────────────
+    var _editCropper = null;
+    function editPreviewPhoto(input) {
+      if (!input.files || !input.files[0]) return;
+      var url = URL.createObjectURL(input.files[0]);
+      var cropImg = document.getElementById('edit-crop-img');
+      cropImg.src = url;
+      document.getElementById('edit-crop-zone').style.display = 'block';
+      if (_editCropper) _editCropper.destroy();
+      _editCropper = new Cropper(cropImg, {
+        aspectRatio: 317 / 390,
+        viewMode: 1,
+        guides: false,
+        center: false,
+        background: false,
+        autoCropArea: 0.95,
+        movable: true,
+        zoomable: true,
+        rotatable: false,
+      });
+    }
+    function editResetPhoto() {
+      if (_editCropper) { _editCropper.destroy(); _editCropper = null; }
+      document.getElementById('edit-photo-input').value = '';
+      document.getElementById('edit-crop-img').src = '';
+      document.getElementById('edit-crop-zone').style.display = 'none';
+    }
+    document.getElementById('edit-form').addEventListener('submit', function(e) {
+      if (!_editCropper) return;
+      e.preventDefault();
+      var form = this;
+      var canvas = _editCropper.getCroppedCanvas({ width: 634, height: 780, imageSmoothingQuality: 'high' });
+      canvas.toBlob(function(blob) {
+        try {
+          var dt = new DataTransfer();
+          dt.items.add(new File([blob], 'photo.jpg', { type: 'image/jpeg' }));
+          document.getElementById('edit-photo-input').files = dt.files;
+        } catch(err) {}
+        form.submit();
+      }, 'image/jpeg', 0.92);
+    });
+
   </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+</body>
+</html>`; } // end isEdit
+
+  // ── New creation: card-by-card wizard ──────────────────────────────────────
+  const totalSteps = isRate ? 5 : 8;
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CreatorHQ · ${isRate ? 'Get your rate card' : 'Build your media kit'}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    ${headCSS()}
+    body { padding: 0 0 88px; background: #fff; color: #0a0a0a; }
+
+    /* Progress */
+    #wiz-progress { height: 3px; background: var(--rule); position: sticky; top: 0; z-index: 10; }
+    #wiz-bar { height: 3px; background: var(--black); transition: width 0.25s ease; }
+    #wiz-meta { padding: 14px 24px 0; display: flex; justify-content: space-between; align-items: center; }
+    #wiz-step-label { font-size: 9pt; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+    #wiz-cancel { font-size: 9pt; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-decoration: none; }
+
+    /* Layout */
+    .wiz-wrap { padding: 36px 24px 0; max-width: 480px; margin: 0 auto; }
+    .form-step { display: none; }
+    .form-step.wiz-active { display: block; }
+
+    /* Typography */
+    .step-h { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 34pt; font-weight: 500; line-height: 1.05; margin-bottom: 10px; }
+    .step-sub { color: var(--muted); font-size: 11pt; margin-bottom: 32px; line-height: 1.5; }
+
+    /* Fields */
+    label { display: block; font-size: 9pt; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; margin-top: 22px; }
+    label:first-of-type { margin-top: 0; }
+    input[type=text], input[type=email], input[type=number], textarea {
+      width: 100%; padding: 14px 16px; border: 1px solid #d8d2ca;
+      background: #fff; font: inherit; font-size: 13pt; color: #0a0a0a;
+      border-radius: 2px; -webkit-appearance: none; appearance: none;
+    }
+    textarea { min-height: 80px; resize: vertical; }
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .row-2 label { margin-top: 0; }
+
+    /* Photo drop */
+    .photo-drop { border: 1px dashed #c0b8b0; border-radius: 2px; padding: 40px 24px; text-align: center; cursor: pointer; background: #faf8f5; position: relative; }
+    .photo-drop input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .photo-drop-label { font-size: 10pt; color: var(--muted); margin-top: 8px; }
+    /* Crop zone */
+    #crop-zone { margin-top: 16px; }
+    #crop-zone .cropper-container { border-radius: 2px; overflow: hidden; }
+    .crop-hint { font-size: 8pt; color: var(--muted); margin-top: 8px; text-align: center; line-height: 1.4; }
+    .photo-change-btn { font-size: 9pt; color: var(--muted); background: none; border: none; cursor: pointer; text-decoration: underline; font-family: inherit; display: block; margin: 10px auto 0; }
+
+    /* Platform blocks */
+    .platform-block { margin-bottom: 32px; padding-bottom: 32px; border-bottom: 1px solid var(--rule); }
+    .platform-block:last-of-type { border-bottom: none; margin-bottom: 0; }
+    .platform-name { font-size: 9pt; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 600; color: var(--black); margin-bottom: 16px; }
+
+    /* Rate preview card */
+    #rate-preview { padding: 28px 20px; background: #faf8f5; border-radius: 2px; margin-bottom: 28px; text-align: center; }
+    .rate-range { display: flex; align-items: baseline; justify-content: center; gap: 10px; margin-bottom: 8px; }
+    .rate-num { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 44pt; font-weight: 500; line-height: 1; }
+    .rate-sep { color: var(--muted); font-size: 20pt; }
+    .rate-unit { font-size: 9pt; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .rate-caveat { font-size: 8pt; color: var(--muted); }
+
+    /* Bottom nav */
+    #wiz-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid var(--rule); padding: 14px 24px; display: flex; gap: 12px; align-items: center; z-index: 20; }
+    #btn-wiz-back { flex: 0 0 auto; background: transparent; border: 1px solid var(--rule); color: var(--muted); padding: 13px 18px; font: inherit; font-size: 10pt; border-radius: 2px; cursor: pointer; }
+    #btn-wiz-skip { flex: 1; background: transparent; border: none; color: var(--muted); font: inherit; font-size: 10pt; cursor: pointer; text-decoration: underline; text-align: center; }
+    #btn-wiz-next { flex: 2; background: var(--black); color: #fff; border: none; padding: 15px; font: inherit; font-size: 12pt; border-radius: 2px; cursor: pointer; letter-spacing: 0.02em; }
+
+    /* Misc */
+    .field-hint { font-size: 8pt; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+    .add-btn { margin-top: 12px; padding: 10px 14px; background: transparent; border: 1px solid var(--rule); font: inherit; font-size: 9pt; cursor: pointer; border-radius: 2px; width: 100%; }
+    .remove-btn { font-size: 8pt; color: var(--muted); background: none; border: none; cursor: pointer; text-decoration: underline; font-family: inherit; margin-top: 6px; }
+    .optional-badge { display: inline-block; font-size: 8pt; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--rule); padding: 2px 8px; border-radius: 2px; margin-left: 10px; vertical-align: middle; }
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
+</head>
+<body>
+  ${renderSiteHeader({ current: 'form' })}
+
+  <div id="wiz-progress"><div id="wiz-bar" style="width:${Math.round(1/totalSteps*100)}%"></div></div>
+  <div id="wiz-meta">
+    <span id="wiz-step-label">Step 1 of ${totalSteps}</span>
+    <a href="/" id="wiz-cancel">Cancel</a>
+  </div>
+
+  <div class="wiz-wrap">
+    <form action="/create" method="post" enctype="multipart/form-data" id="wiz-form">
+      <input type="hidden" name="mode" value="${mode}" />
+      <input name="hp_check" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;top:-9999px;opacity:0;pointer-events:none;" />
+      <input name="form_rendered_at" type="hidden" value="${Date.now()}" />
+
+      <!-- ── Step 1: Photo + Identity ── -->
+      <div class="form-step wiz-active" data-step="1">
+        <h2 class="step-h">Start with your photo</h2>
+        <p class="step-sub">This goes on your rate card first. A clear headshot works best.</p>
+
+        <div class="photo-drop" id="photo-drop">
+          <div style="font-size:28px;margin-bottom:8px;">📷</div>
+          <div class="photo-drop-label">Tap to choose a photo</div>
+          <input name="photo" type="file" accept="image/*" id="photo-input" onchange="previewPhoto(this)" />
+        </div>
+        <div id="crop-zone" style="display:none;">
+          <img id="crop-img" src="" alt="Crop preview" style="max-width:100%;display:block;" />
+          <p class="crop-hint">Drag to position · pinch or scroll to zoom</p>
+          <button type="button" class="photo-change-btn" onclick="resetPhoto()">Choose different photo</button>
+        </div>
+
+        <label style="margin-top:28px;">First name</label>
+        <input name="name_first" type="text" required placeholder="e.g. Khanyisile" value="${esc(c.nameDetails?.first || nameStr.split(' ')[0] || '')}" />
+
+        <label>Surname</label>
+        <input name="name_last" type="text" required placeholder="e.g. Khumalo" value="${esc(c.nameDetails?.last || nameStr.split(' ').slice(1).join(' ') || '')}" />
+
+        <label>Handle <span style="text-transform:none;letter-spacing:0;font-weight:400;font-size:8pt;"> optional</span></label>
+        <input name="handle" type="text" placeholder="@yourname" value="${esc(c.handle)}" />
+
+        <label>Email</label>
+        <input name="email" type="email" required placeholder="you@example.com" value="${esc(contactEmail)}" />
+      </div>
+
+      <!-- ── Step 2: Platforms ── -->
+      <div class="form-step" data-step="2">
+        <h2 class="step-h">Your reach</h2>
+        <p class="step-sub">Organic stats only. Paid and boosted content doesn't count here.</p>
+
+        <div class="platform-block">
+          <div class="platform-name">Instagram</div>
+          <label>Handle</label>
+          <input name="ig_handle" type="text" placeholder="@yourhandle" value="${esc(ig.handle)}" />
+          <div class="row-2" style="margin-top:14px;">
+            <div>
+              <label>Followers</label>
+              <input name="ig_followers" type="number" min="0" placeholder="0" value="${ig.followers || ''}" oninput="updateRatePreview()" />
+            </div>
+            <div>
+              <label>Engagement %</label>
+              <input name="ig_engagement" type="number" step="0.1" min="0" placeholder="0.0" value="${ig.engagement || ''}" oninput="updateRatePreview()" />
+            </div>
+          </div>
+        </div>
+
+        <div class="platform-block">
+          <div class="platform-name">TikTok</div>
+          <label>Handle</label>
+          <input name="tt_handle" type="text" placeholder="@yourhandle" value="${esc(tt.handle)}" />
+          <div class="row-2" style="margin-top:14px;">
+            <div>
+              <label>Followers</label>
+              <input name="tt_followers" type="number" min="0" placeholder="0" value="${tt.followers || ''}" oninput="updateRatePreview()" />
+            </div>
+            <div>
+              <label>Engagement %</label>
+              <input name="tt_engagement" type="number" step="0.1" min="0" placeholder="0.0" value="${tt.engagement || ''}" oninput="updateRatePreview()" />
+            </div>
+          </div>
+        </div>
+
+        <div class="platform-block">
+          <div class="platform-name">YouTube</div>
+          <label>Channel handle</label>
+          <input name="yt_handle" type="text" placeholder="@yourchannel" value="${esc(yt.handle)}" />
+          <div class="row-2" style="margin-top:14px;">
+            <div>
+              <label>Subscribers</label>
+              <input name="yt_followers" type="number" min="0" placeholder="0" value="${yt.followers || ''}" oninput="updateRatePreview()" />
+            </div>
+            <div>
+              <label>Avg views / video</label>
+              <input name="yt_avg_views" type="number" min="0" placeholder="0" value="${yt.avgViews || ''}" oninput="updateRatePreview()" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Step 3: Rate preview + context ── -->
+      <div class="form-step" data-step="3">
+        <h2 class="step-h">What your work is worth</h2>
+        <p class="step-sub">Based on your stats. You can set your actual rates in the next step.</p>
+
+        <div id="rate-preview">
+          <p style="color:var(--muted);font-size:10pt;text-align:center;padding:20px 0;">Fill in platform stats on the previous step to see your range.</p>
+        </div>
+
+        <label>Niche / Category</label>
+        <input name="niche" type="text" placeholder="e.g. Fashion, Beauty, Lifestyle" value="${esc(c.niche)}" />
+
+        <label>Location</label>
+        <input name="location" type="text" placeholder="e.g. Johannesburg" value="${esc(c.location)}" />
+
+        <label>Tagline</label>
+        <input name="tagline" type="text" placeholder="One line that describes you" value="${esc(c.tagline)}" />
+
+        ${!isRate ? `
+        <label>Short bio</label>
+        <textarea name="bio" placeholder="Two or three sentences. Who you are, who you make for.">${esc(bioText)}</textarea>
+        ` : ''}
+      </div>
+
+      ${isRate ? `
+      <!-- ── Step 4 (rate card): Rates ── -->
+      <div class="form-step" data-step="4">
+        <h2 class="step-h">Set your rates</h2>
+        <p class="step-sub">The range above is a guide. Set what feels right for your work.</p>
+
+        <label>Hourly rate (R/hr)</label>
+        <input name="rate_hourly" type="number" min="0" placeholder="e.g. 500" value="${rateHourly}" />
+
+        <label>3hr package (R)</label>
+        <input name="rate_3h" type="number" min="0" placeholder="e.g. 1,200" value="${ratePkgs['3h'] || ''}" />
+
+        <label>4hr package (R)</label>
+        <input name="rate_4h" type="number" min="0" placeholder="e.g. 1,800" value="${ratePkgs['4h'] || ''}" />
+
+        <label>Full day 8hr (R)</label>
+        <input name="rate_8h" type="number" min="0" placeholder="e.g. 3,500" value="${ratePkgs['8h'] || ''}" />
+
+        <div id="rates" style="margin-top:8px;">
+          ${(c.customRates || []).map(r => `
+          <div style="display:grid;grid-template-columns:2fr 1fr auto;gap:10px;margin-top:10px;align-items:start;">
+            <input name="rate_label" type="text" placeholder="e.g. Branded Reel" value="${esc(r.label)}" />
+            <input name="rate_amount" type="number" min="0" value="${r.amount}" />
+            <button type="button" onclick="this.parentElement.remove()" style="padding:14px 10px;background:transparent;border:1px solid var(--rule);cursor:pointer;border-radius:2px;font:inherit;">×</button>
+            <input name="rate_note" type="text" placeholder="Note (optional)" value="${esc(r.note || '')}" style="grid-column:1 / -1;margin-top:-6px;" />
+          </div>`).join('')}
+        </div>
+        <button type="button" class="add-btn" onclick="addRate()">+ Add custom rate</button>
+      </div>
+      ` : `
+      <!-- ── Steps 4-7 (media kit): Optional depth ── -->
+
+      <!-- Step 4: Bio + Reach -->
+      <div class="form-step" data-step="4">
+        <h2 class="step-h">Tell your story <span class="optional-badge">Optional</span></h2>
+        <p class="step-sub">Enriches your media kit. Skip if you're not ready.</p>
+
+        <label>Reach stats <span style="font-size:8pt;letter-spacing:0;text-transform:none;font-weight:400;">Up to 3 headline numbers</span></label>
+        <div id="reach-list">
+          ${(reachArr.length ? reachArr : [{}, {}, {}]).slice(0, 3).map(r => `
+          <div class="row-2" style="margin-bottom:8px;">
+            <input name="reach_value" type="text" placeholder="e.g. 20M+" value="${esc(r.val || r.value || '')}" />
+            <input name="reach_label" type="text" placeholder="e.g. FB Monthly Reach" value="${esc(r.lbl || r.label || '')}" />
+          </div>`).join('')}
+        </div>
+
+        <div style="margin-top:24px;">
+          <label>Bio paragraphs</label>
+          <div id="bio-paragraphs">
+            ${(bioParagraphs.length ? bioParagraphs : ['']).map(p => `
+            <textarea name="bio_paragraph" placeholder="A paragraph of your story" style="margin-bottom:10px;">${esc(typeof p === 'string' ? p : '')}</textarea>`).join('')}
+          </div>
+          <button type="button" class="add-btn" onclick="addBioParagraph()">+ Add paragraph</button>
+        </div>
+      </div>
+
+      <!-- Step 5: Audience -->
+      <div class="form-step" data-step="5">
+        <h2 class="step-h">Who's watching <span class="optional-badge">Optional</span></h2>
+        <p class="step-sub">Brands use this to qualify audience fit. Skip if you don't have the data.</p>
+
+        <label>Gender split</label>
+        <div class="row-2">
+          <div>
+            <label>Male %</label>
+            <input name="audience_male" type="text" placeholder="40" value="${esc(audGender.male || '')}" />
+          </div>
+          <div>
+            <label>Female %</label>
+            <input name="audience_female" type="text" placeholder="60" value="${esc(audGender.female || '')}" />
+          </div>
+        </div>
+
+        <div id="age-list" style="margin-top:20px;">
+          <label>Age ranges</label>
+          ${(audAge.length ? audAge : [{}, {}]).slice(0, 4).map(a => `
+          <div class="row-2" style="margin-bottom:8px;">
+            <input name="audience_age_range" type="text" placeholder="e.g. 18-24" value="${esc(a.range || '')}" />
+            <input name="audience_age_pct" type="text" placeholder="%" value="${esc(a.percentage || '')}" />
+          </div>`).join('')}
+          <button type="button" class="add-btn" onclick="addAgeRange()">+ Add range</button>
+        </div>
+
+        <div id="loc-list" style="margin-top:20px;">
+          <label>Top locations</label>
+          ${(audLocs.length ? audLocs : [{}, {}, {}]).slice(0, 5).map(l => {
+            const locName = typeof l === 'string' ? l : (l.name || '');
+            const locPct  = typeof l === 'string' ? '' : (l.percentage || '');
+            return `
+          <div class="row-2" style="margin-bottom:8px;">
+            <input name="audience_location" type="text" placeholder="e.g. Gauteng" value="${esc(locName)}" />
+            <input name="audience_location_pct" type="text" placeholder="% (optional)" value="${esc(locPct)}" />
+          </div>`;
+          }).join('')}
+          <button type="button" class="add-btn" onclick="addLocation()">+ Add location</button>
+        </div>
+      </div>
+
+      <!-- Step 6: Brands + Work -->
+      <div class="form-step" data-step="6">
+        <h2 class="step-h">Your brand work <span class="optional-badge">Optional</span></h2>
+        <p class="step-sub">Justifies your rate in a brand meeting. Skip if you're just starting out.</p>
+
+        <label>Selected work</label>
+        <div id="works">
+          ${(c.workPreview && c.workPreview.length ? c.workPreview : [{}]).map(w => `
+          <div style="display:grid;grid-template-columns:1fr 2fr auto;gap:10px;margin-bottom:8px;align-items:start;">
+            <input name="work_brand" type="text" placeholder="Brand" value="${esc(w.brand || '')}" />
+            <input name="work_note" type="text" placeholder="What you did / the result" value="${esc(w.note || '')}" />
+            <button type="button" onclick="this.parentElement.remove()" style="padding:14px 10px;background:transparent;border:1px solid var(--rule);cursor:pointer;border-radius:2px;font:inherit;">×</button>
+          </div>`).join('')}
+        </div>
+        <button type="button" class="add-btn" onclick="addWork()">+ Add work</button>
+
+        <div id="brands-list" style="margin-top:28px;">
+          <label>Brands worked with</label>
+          ${(brandsArr.length ? brandsArr : [{}, {}]).slice(0, 8).map((b, i) => `
+          <div style="margin-bottom:14px;padding:14px;border:1px solid var(--rule);border-radius:2px;">
+            <div class="row-2">
+              <input name="brand_name" type="text" placeholder="Brand name" value="${esc(b.name || '')}" />
+              <input name="brand_category" type="text" placeholder="Category" value="${esc(b.category || '')}" />
+            </div>
+            <input name="brand_${i}_evidence_0" type="text" placeholder="Evidence link (optional)" value="${esc(b.evidence?.[0] || '')}" style="margin-top:8px;" />
+            <button type="button" onclick="this.parentElement.remove()" class="remove-btn">Remove</button>
+          </div>`).join('')}
+          <button type="button" class="add-btn" onclick="addBrand()">+ Add brand</button>
+        </div>
+      </div>
+
+      <!-- Step 7: Packages + Rates + Contact -->
+      <div class="form-step" data-step="7">
+        <h2 class="step-h">Packages and rates <span class="optional-badge">Optional</span></h2>
+        <p class="step-sub">Structured offerings and custom rates. Skip if you prefer to discuss on enquiry.</p>
+
+        <div id="packages-list">
+          ${(packagesArr.length ? packagesArr : [{}, {}]).slice(0, 3).map((p, i) => `
+          <div style="margin-bottom:14px;padding:14px;border:1px solid var(--rule);border-radius:2px;">
+            <div class="row-2">
+              <div>
+                <label>Package name</label>
+                <input name="package_name" type="text" placeholder="e.g. Basic Campaign" value="${esc(p.name || '')}" />
+              </div>
+              <div>
+                <label>Price</label>
+                <input name="package_price" type="text" placeholder="e.g. R50,000" value="${esc(p.price || '')}" />
+              </div>
+            </div>
+            <label>Description</label>
+            <textarea name="package_desc" placeholder="What's included. One bullet per line." style="min-height:60px;">${esc(p.description || '')}</textarea>
+            <label style="display:inline-flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:9pt;margin-top:6px;">
+              <input name="package_highlight" type="checkbox" value="${i}" ${p.highlight ? 'checked' : ''} />
+              Highlight this package
+            </label>
+          </div>`).join('')}
+        </div>
+
+        <label style="margin-top:24px;">Hourly rate (R/hr)</label>
+        <input name="rate_hourly" type="number" min="0" placeholder="e.g. 500" value="${rateHourly}" />
+
+        <div id="rates" style="margin-top:8px;">
+          ${(c.customRates || []).map(r => `
+          <div style="display:grid;grid-template-columns:2fr 1fr auto;gap:10px;margin-top:10px;align-items:start;">
+            <input name="rate_label" type="text" value="${esc(r.label)}" />
+            <input name="rate_amount" type="number" min="0" value="${r.amount}" />
+            <button type="button" onclick="this.parentElement.remove()" style="padding:14px 10px;background:transparent;border:1px solid var(--rule);cursor:pointer;border-radius:2px;font:inherit;">×</button>
+          </div>`).join('')}
+          <button type="button" class="add-btn" onclick="addRate()">+ Add custom rate</button>
+        </div>
+
+        <label style="margin-top:24px;">Cell number</label>
+        <input name="phone" type="tel" placeholder="+27 82 000 0000" value="${esc(creator?.contact?.phone || '')}">
+
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400;margin-top:4px;">
+          <input type="checkbox" name="wa_same" id="wa-same"
+            onchange="document.getElementById('wa-field').style.display=this.checked?'none':'block'"
+            ${(!creator?.contact?.whatsapp || creator?.contact?.whatsapp === creator?.contact?.phone) ? 'checked' : ''}>
+          WhatsApp is the same number
+        </label>
+        <input name="whatsapp" type="tel" id="wa-field" placeholder="+27 82 000 0000"
+          value="${esc(creator?.contact?.whatsapp && creator.contact.whatsapp !== creator?.contact?.phone ? creator.contact.whatsapp : '')}"
+          style="display:${(!creator?.contact?.whatsapp || creator?.contact?.whatsapp === creator?.contact?.phone) ? 'none' : 'block'}">
+
+        <label style="margin-top:16px;">Contact note</label>
+        <textarea name="contact_note" placeholder="For campaign briefs and partnership proposals...">${esc(contactNote)}</textarea>
+      </div>
+      `}
+
+      <!-- ── Final step: Recovery ── -->
+      <div class="form-step" data-step="${totalSteps}">
+        <h2 class="step-h">You're almost there.</h2>
+        <p class="step-sub">Save your access so you can edit this ${isRate ? 'rate card' : 'kit'} from any device. We hash both fields before storing — your raw details never persist.</p>
+
+        <label>Your contact</label>
+        <input name="recovery_contact" type="text" inputmode="email" autocomplete="email" placeholder="you@example.com or 0821234567" required />
+
+        <label style="margin-top:22px;">Date of birth</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:8px;">
+          <input name="recovery_dob_d" type="text" inputmode="numeric" pattern="\\d*" maxlength="2" placeholder="DD" required aria-label="Day" />
+          <input name="recovery_dob_m" type="text" inputmode="numeric" pattern="\\d*" maxlength="2" placeholder="MM" required aria-label="Month" />
+          <input name="recovery_dob_y" type="text" inputmode="numeric" pattern="\\d*" maxlength="4" placeholder="YYYY" required aria-label="Year" />
+        </div>
+
+        <button type="submit" style="margin-top:32px;width:100%;background:var(--black);color:#fff;border:none;padding:18px;font:inherit;font-size:13pt;border-radius:2px;cursor:pointer;letter-spacing:0.03em;">${submitLabel} →</button>
+      </div>
+
+    </form>
+  </div>
+
+  <!-- Fixed bottom nav (hidden on final step — submit is in the step) -->
+  <nav id="wiz-nav" style="position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--rule);padding:14px 24px;display:flex;gap:12px;align-items:center;z-index:20;">
+    <button id="btn-wiz-back" type="button" onclick="wizBack()" style="flex:0 0 auto;background:transparent;border:1px solid var(--rule);color:var(--muted);padding:13px 18px;font:inherit;font-size:10pt;border-radius:2px;cursor:pointer;display:none;">← Back</button>
+    <button id="btn-wiz-skip" type="button" onclick="wizSkip()" style="flex:1;background:transparent;border:none;color:var(--muted);font:inherit;font-size:10pt;cursor:pointer;text-decoration:underline;text-align:center;display:none;">Skip</button>
+    <button id="btn-wiz-next" type="button" onclick="wizNext()" style="flex:2;background:var(--black);color:#fff;border:none;padding:15px;font:inherit;font-size:12pt;border-radius:2px;cursor:pointer;">Next →</button>
+  </nav>
+
+  <script>
+    // ── Wizard state ──────────────────────────────────────────────────────────
+    (function() {
+      var TOTAL = ${totalSteps};
+      var optional = ${isRate ? '[]' : '[4,5,6,7]'};
+      var cur = 1;
+
+      function show(n) {
+        document.querySelectorAll('.form-step').forEach(function(s) { s.classList.remove('wiz-active'); });
+        var step = document.querySelector('.form-step[data-step="' + n + '"]');
+        if (step) step.classList.add('wiz-active');
+        cur = n;
+
+        // Progress
+        document.getElementById('wiz-bar').style.width = (n / TOTAL * 100) + '%';
+        document.getElementById('wiz-step-label').textContent = 'Step ' + n + ' of ' + TOTAL;
+
+        // Back button
+        var bb = document.getElementById('btn-wiz-back');
+        bb.style.display = n > 1 ? '' : 'none';
+
+        // Skip button (optional steps only, not final)
+        var bs = document.getElementById('btn-wiz-skip');
+        bs.style.display = (optional.indexOf(n) !== -1 && n < TOTAL) ? '' : 'none';
+
+        // Next button (hidden on final step — submit button is inline)
+        var bn = document.getElementById('btn-wiz-next');
+        bn.style.display = n === TOTAL ? 'none' : '';
+
+        // Whole nav hidden on final step
+        var nav = document.getElementById('wiz-nav');
+        nav.style.display = n === TOTAL ? 'none' : '';
+
+        if (n === 3) updateRatePreview();
+        window.scrollTo(0, 0);
+      }
+
+      window.wizNext = function() { if (cur < TOTAL) show(cur + 1); };
+      window.wizBack = function() { if (cur > 1) show(cur - 1); };
+      window.wizSkip = function() { if (cur < TOTAL) show(cur + 1); };
+
+      show(1);
+    })();
+
+    // ── Live rate preview ─────────────────────────────────────────────────────
+    function updateRatePreview() {
+      var igF = parseInt(document.querySelector('[name=ig_followers]')?.value) || 0;
+      var igE = parseFloat(document.querySelector('[name=ig_engagement]')?.value) || 0;
+      var ttF = parseInt(document.querySelector('[name=tt_followers]')?.value) || 0;
+      var ttE = parseFloat(document.querySelector('[name=tt_engagement]')?.value) || 0;
+      var ytV = parseInt(document.querySelector('[name=yt_avg_views]')?.value) || 0;
+
+      function em(e) { return e > 0 && e < 2 ? 0.8 : e >= 4.1 && e < 8 ? 1.2 : e >= 8 ? 1.5 : 1; }
+      function snap(n) { return Math.round(Math.max(100, n) / 50) * 50; }
+      function fmt(n) { return 'R' + n.toLocaleString('en-ZA'); }
+
+      var pl = [];
+      if (igF > 0) { var s = snap((igF/10000)*150*em(igE)); pl.push({ name:'Instagram', unit:'per post', s:s, lo:snap(s*.8), hi:snap(s*1.2) }); }
+      if (ttF > 0) { var s = snap((ttF/10000)*150*1.5*em(ttE)); pl.push({ name:'TikTok', unit:'per reel', s:s, lo:snap(s*.8), hi:snap(s*1.2) }); }
+      if (ytV > 0) { var s = snap((ytV/10000)*400*2.5); pl.push({ name:'YouTube', unit:'per dedicated video', s:s, lo:snap(s*.8), hi:snap(s*1.2) }); }
+
+      var el = document.getElementById('rate-preview');
+      if (!el) return;
+      if (!pl.length) {
+        el.innerHTML = '<p style="color:var(--muted);font-size:10pt;text-align:center;padding:20px 0;">Go back and fill in your platform stats to see your range.</p>';
+        return;
+      }
+      var lead = pl.reduce(function(b,p) { return p.s > b.s ? p : b; }, pl[0]);
+      el.innerHTML =
+        '<div class="rate-range"><span class="rate-num">' + fmt(lead.lo) + '</span>' +
+        '<span class="rate-sep">–</span>' +
+        '<span class="rate-num">' + fmt(lead.hi) + '</span></div>' +
+        '<div class="rate-unit">' + lead.unit + ' · ' + lead.name + '</div>' +
+        '<div class="rate-caveat">Organic reach only. Paid content excluded.</div>';
+    }
+
+    // ── Photo crop (Cropper.js) ───────────────────────────────────────────────
+    var _cropper = null;
+    function previewPhoto(input) {
+      if (!input.files || !input.files[0]) return;
+      var url = URL.createObjectURL(input.files[0]);
+      var cropImg = document.getElementById('crop-img');
+      cropImg.src = url;
+      document.getElementById('photo-drop').style.display = 'none';
+      document.getElementById('crop-zone').style.display = 'block';
+      if (_cropper) _cropper.destroy();
+      _cropper = new Cropper(cropImg, {
+        aspectRatio: 317 / 390,    // exact hero photo slot ratio (band 1 left panel)
+        viewMode: 1,               // crop box stays inside image
+        guides: false,
+        center: false,
+        background: false,
+        autoCropArea: 0.95,
+        movable: true,
+        zoomable: true,
+        rotatable: false,
+      });
+    }
+    function resetPhoto() {
+      if (_cropper) { _cropper.destroy(); _cropper = null; }
+      document.getElementById('photo-input').value = '';
+      document.getElementById('crop-img').src = '';
+      document.getElementById('photo-drop').style.display = '';
+      document.getElementById('crop-zone').style.display = 'none';
+    }
+
+    // Intercept submit: export cropped canvas → replace file input → re-submit
+    document.getElementById('wiz-form').addEventListener('submit', function(e) {
+      if (!_cropper) return; // no photo selected, pass through
+      e.preventDefault();
+      var form = this;
+      var canvas = _cropper.getCroppedCanvas({ width: 634, height: 780, imageSmoothingQuality: 'high' });
+      canvas.toBlob(function(blob) {
+        try {
+          var dt = new DataTransfer();
+          dt.items.add(new File([blob], 'photo.jpg', { type: 'image/jpeg' }));
+          document.getElementById('photo-input').files = dt.files;
+        } catch(err) {
+          // DataTransfer not supported (rare) — submit without replacement
+        }
+        form.submit();
+      }, 'image/jpeg', 0.92);
+    });
+
+    // ── DOB auto-advance ──────────────────────────────────────────────────────
+    (function() {
+      var dob = document.querySelectorAll('input[name^="recovery_dob_"]');
+      dob.forEach(function(el, i) {
+        el.addEventListener('input', function() { if (el.value.length >= el.maxLength && i < dob.length-1) dob[i+1].focus(); });
+        el.addEventListener('keydown', function(e) { if (e.key === 'Backspace' && el.value === '' && i > 0) dob[i-1].focus(); });
+      });
+    })();
+
+    // ── Field helpers ─────────────────────────────────────────────────────────
+    function addRate() {
+      var wrap = document.getElementById('rates');
+      var row = document.createElement('div');
+      row.style.cssText = 'display:grid;grid-template-columns:2fr 1fr auto;gap:10px;margin-top:10px;align-items:start;';
+      row.innerHTML = '<input name="rate_label" type="text" placeholder="e.g. TikTok Reel" />' +
+        '<input name="rate_amount" type="number" min="0" placeholder="Amount" />' +
+        '<button type="button" onclick="this.parentElement.remove()" style="padding:14px 10px;background:transparent;border:1px solid var(--rule);cursor:pointer;border-radius:2px;font:inherit;">×</button>' +
+        '<input name="rate_note" type="text" placeholder="Note (optional)" style="grid-column:1 / -1;margin-top:-6px;" />';
+      wrap.insertBefore(row, wrap.querySelector('.add-btn'));
+    }
+    function addWork() {
+      var wrap = document.getElementById('works');
+      var row = document.createElement('div');
+      row.style.cssText = 'display:grid;grid-template-columns:1fr 2fr auto;gap:10px;margin-bottom:8px;align-items:start;';
+      row.innerHTML = '<input name="work_brand" type="text" placeholder="Brand" />' +
+        '<input name="work_note" type="text" placeholder="What you did / the result" />' +
+        '<button type="button" onclick="this.parentElement.remove()" style="padding:14px 10px;background:transparent;border:1px solid var(--rule);cursor:pointer;border-radius:2px;font:inherit;">×</button>';
+      wrap.appendChild(row);
+    }
+    function addBioParagraph() {
+      var wrap = document.getElementById('bio-paragraphs');
+      if (!wrap) return;
+      var t = document.createElement('textarea');
+      t.name = 'bio_paragraph'; t.placeholder = 'A paragraph of your story';
+      t.style.cssText = 'margin-bottom:10px;min-height:80px;';
+      wrap.appendChild(t);
+    }
+    function addAgeRange() {
+      var wrap = document.getElementById('age-list');
+      if (!wrap) return;
+      var row = document.createElement('div');
+      row.className = 'row-2'; row.style.marginBottom = '8px';
+      row.innerHTML = '<input name="audience_age_range" type="text" placeholder="e.g. 25-34" /><input name="audience_age_pct" type="text" placeholder="%" />';
+      wrap.insertBefore(row, wrap.querySelector('.add-btn'));
+    }
+    function addLocation() {
+      var wrap = document.getElementById('loc-list');
+      if (!wrap) return;
+      var row = document.createElement('div');
+      row.className = 'row-2'; row.style.marginBottom = '8px';
+      row.innerHTML = '<input name="audience_location" type="text" placeholder="e.g. Cape Town" /><input name="audience_location_pct" type="text" placeholder="% (optional)" />';
+      wrap.insertBefore(row, wrap.querySelector('.add-btn'));
+    }
+    function addBrand() {
+      var wrap = document.getElementById('brands-list');
+      if (!wrap) return;
+      var i = wrap.querySelectorAll('[name=brand_name]').length;
+      var div = document.createElement('div');
+      div.style.cssText = 'margin-bottom:14px;padding:14px;border:1px solid var(--rule);border-radius:2px;';
+      div.innerHTML = '<div class="row-2"><input name="brand_name" type="text" placeholder="Brand name" /><input name="brand_category" type="text" placeholder="Category" /></div>' +
+        '<input name="brand_' + i + '_evidence_0" type="text" placeholder="Evidence link (optional)" style="margin-top:8px;" />' +
+        '<button type="button" onclick="this.parentElement.remove()" class="remove-btn">Remove</button>';
+      wrap.insertBefore(div, wrap.querySelector('.add-btn'));
+    }
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 </body>
 </html>`;
 }
 
 function renderNudge(creator) {
-  // Logic: Only show if the profile is not yet linked to an owner (draft) 
-  // and we are NOT in the middle of a signup flow.
-  if (creator.owner_id) return '';
+  // Only show for profiles that have no ownership block yet (true drafts).
+  // creator.ownership is set when the creator has locked the link to an account.
+  if (creator.ownership?.owner_token || creator.owner_id) return '';
 
   return `
     <div class="nudge">
@@ -2791,17 +4461,100 @@ export function renderLandingHTML() {
       border-radius: 100px;
     }
 
+    /* Hero is a two-column grid: copy left, image-with-phone-frame right.
+       On mobile it stacks (image on top, copy below) — image-dominant layout
+       per the gallery direction. The photo is Khanyi's locked portrait; the
+       phone frame floats over its lower-left, showing the kit's cover crop. */
     .hero {
       position: relative;
       z-index: 1;
       flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      padding: 8rem 4rem 6rem;
-      max-width: 1100px;
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 3rem;
+      align-items: center;
+      padding: 5rem 4rem 5rem;
+      max-width: 1180px;
       margin: 0 auto;
       width: 100%;
+    }
+    .hero__copy { display: flex; flex-direction: column; }
+    .hero__visual {
+      position: relative;
+      aspect-ratio: 4 / 5;
+      max-width: 480px;
+      width: 100%;
+      justify-self: end;
+    }
+    /* The hero photo is treated transparently — no brightness filter, no
+       overlay. Whatever Mow supplies is what renders. The image itself is
+       the contrast move; CSS stays out of the way. object-position can be
+       tweaked via the inline style attribute on the img tag if a future
+       photo needs different framing. */
+    .hero__photo {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center 30%;
+      border-radius: 4px;
+    }
+    /* The phone-shaped card floats over the lower-left of the photo and shows
+       Khanyi's cover crop: portrait + name + handle. Generic phone outline
+       (no notch, no status bar). Square-on, no tilt. Editorial, not SaaS. */
+    .hero__phone {
+      position: absolute;
+      bottom: -1.5rem;
+      left: -1.5rem;
+      width: 52%;
+      max-width: 220px;
+      aspect-ratio: 9 / 19;
+      background: #0a0a0a;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 22px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5), 0 8px 16px rgba(0,0,0,0.4);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .hero__phone-photo {
+      width: 100%;
+      height: 62%;
+      object-fit: cover;
+      object-position: center 30%;
+    }
+    .hero__phone-text {
+      flex: 1;
+      padding: 0.85rem 0.9rem 1rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      background: linear-gradient(180deg, rgba(10,10,10,0) 0%, #0a0a0a 30%);
+      margin-top: -3rem;
+      position: relative;
+    }
+    .hero__phone-eyebrow {
+      font-size: 0.42rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+      margin-bottom: 0.35rem;
+    }
+    .hero__phone-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.05rem;
+      line-height: 1.05;
+      color: #f8f5f0;
+      letter-spacing: -0.01em;
+    }
+    .hero__phone-name em { font-style: italic; color: rgba(248,245,240,0.65); }
+    .hero__phone-handle {
+      font-family: 'Instrument Sans', sans-serif;
+      font-size: 0.55rem;
+      color: rgba(255,255,255,0.4);
+      margin-top: 0.35rem;
+      letter-spacing: 0.04em;
     }
     .hero__eyebrow {
       font-size: 0.58rem;
@@ -2867,6 +4620,9 @@ export function renderLandingHTML() {
       border: 1px solid rgba(255,255,255,0.18);
     }
     .hero__cta--ghost:hover { background: rgba(255,255,255,0.04); opacity: 1; }
+    /* "Calculate my rate" tertiary link — Mongezi flagged it as invisible.
+       Now: paper-coloured, underlined with offset, same letter-spacing as
+       the CTAs. Reads as a deliberate side-door, not a footnote. */
     .hero__calc {
       display: inline-flex;
       align-items: center;
@@ -2875,11 +4631,13 @@ export function renderLandingHTML() {
       font-weight: 400;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: rgba(255,255,255,0.35);
-      text-decoration: none;
-      transition: color 0.2s;
+      color: #f8f5f0;
+      text-decoration: underline;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 5px;
+      transition: opacity 0.2s;
     }
-    .hero__calc:hover { color: rgba(255,255,255,0.75); }
+    .hero__calc:hover { opacity: 0.7; }
 
     .proof {
       position: relative;
@@ -2935,12 +4693,29 @@ export function renderLandingHTML() {
     .foot__link { font-size: 0.52rem; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(255,255,255,0.15); text-decoration: none; }
     .foot__link:hover { color: rgba(255,255,255,0.35); }
 
-    @media (max-width: 720px) {
-      .nav { padding: 1.5rem; }
-      .hero { padding: 5rem 1.5rem 4rem; }
-      .hero__title { font-size: 3.5rem; }
+    @media (max-width: 860px) {
+      /* Mobile-first: image dominant on top, copy below as caption.
+         Magazine-cover logic — the photo carries the message. */
+      .hero {
+        grid-template-columns: 1fr;
+        padding: 2.5rem 1.5rem 4rem;
+        gap: 2.5rem;
+      }
+      .hero__visual {
+        order: 1;
+        max-width: 100%;
+        aspect-ratio: 4 / 5;
+        justify-self: stretch;
+      }
+      .hero__copy { order: 2; }
+      .hero__phone { width: 44%; max-width: 180px; bottom: -1rem; left: -0.75rem; }
+      .hero__title { font-size: clamp(2.6rem, 11vw, 4rem); }
+      .hero__sub { font-size: 0.92rem; margin-bottom: 2rem; }
       .proof { grid-template-columns: 1fr; padding: 0; }
       .foot { flex-direction: column; gap: 0.8rem; padding: 2rem 1.5rem; }
+    }
+    @media (max-width: 480px) {
+      .hero__phone { width: 50%; max-width: 160px; }
     }
   </style>
 </head>
@@ -2948,23 +4723,36 @@ export function renderLandingHTML() {
   ${renderSiteHeader({ current: 'landing' })}
 
   <main class="hero">
-    <div class="hero__eyebrow">For African Creators</div>
-    <h1 class="hero__title">Your kit.<br><em>Your rate.<br>Your terms.</em></h1>
-    <div class="hero__rule"></div>
-    <p class="hero__sub">Build a media kit that opens doors. Walk into brand meetings with a designed, data-backed rate card and a PDF you can send tonight.</p>
-    <div class="hero__cta-row">
-      <a href="/new?rate-card=1" class="hero__cta">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        Get my rate card
-      </a>
-      <a href="/new" class="hero__cta hero__cta--ghost">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Build my media kit
+    <div class="hero__copy">
+      <div class="hero__eyebrow">For African Creators</div>
+      <h1 class="hero__title">Your kit.<br><em>Your rate. Your terms.</em></h1>
+      <div class="hero__rule"></div>
+      <p class="hero__sub">A designed, data-backed media kit you can build in five minutes and share tonight. No signup. No screenshots. No guessing what to charge.</p>
+      <div class="hero__cta-row">
+        <a href="/new?rate-card=1" class="hero__cta">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Get my rate card
+        </a>
+        <a href="/new" class="hero__cta hero__cta--ghost">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Build my media kit
+        </a>
+      </div>
+      <a href="/calculator" class="hero__calc">
+        Not sure what to charge? Calculate my rate →
       </a>
     </div>
-    <a href="/calculator" class="hero__calc">
-      Not sure what to charge? Calculate my rate →
-    </a>
+    <div class="hero__visual">
+      <img class="hero__photo" src="/uploads/pnkr6y9NW0.JPG" alt="" loading="eager" fetchpriority="high">
+      <div class="hero__phone" aria-hidden="true">
+        <img class="hero__phone-photo" src="/uploads/pnkr6y9NW0.JPG" alt="">
+        <div class="hero__phone-text">
+          <div class="hero__phone-eyebrow">Media Kit · 2026</div>
+          <div class="hero__phone-name">Khanyisile<br><em>Khumalo</em></div>
+          <div class="hero__phone-handle">@khanyisilekhumalo · Tembisa</div>
+        </div>
+      </div>
+    </div>
   </main>
 
   <section class="proof">
@@ -2987,9 +4775,32 @@ export function renderLandingHTML() {
 
   ${renderTrustStrip()}
 
+  <!-- Closing CTA section. Confident closing move after a visitor has read
+       the testimonial + proof. Repeats the hero buttons because by the time
+       someone reaches here they're warm and ready. Italic Cormorant headline
+       in the same register as the rest. -->
+  <section class="close-cta" style="padding:6rem 2rem; text-align:center; border-top:1px solid rgba(248,245,240,0.06);">
+    <h2 style="font-family:'Cormorant Garamond', serif; font-style:italic; font-weight:300; font-size:clamp(2.2rem, 5vw, 3.4rem); color:#f8f5f0; margin-bottom:2.5rem; letter-spacing:-0.01em; line-height:1.1;">Build yours today. In minutes.</h2>
+    <div class="hero__cta-row" style="justify-content:center; margin-bottom:2rem;">
+      <a href="/new?rate-card=1" class="hero__cta">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Get my rate card
+      </a>
+      <a href="/new" class="hero__cta hero__cta--ghost">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Build my media kit
+      </a>
+    </div>
+    <a href="/calculator" class="hero__calc">or calculate my rate →</a>
+  </section>
+
   <footer class="foot">
-    <div class="foot__credit">Built by <span>CreatorHQ</span> · Simulacra ecosystem</div>
-    <a href="/new" class="foot__link">Get started →</a>
+    <div class="foot__credit">Built in Johannesburg, for African creators.</div>
+    <div style="display:flex; gap:1.25rem; font-family:'Instrument Sans',sans-serif; font-size:0.6rem; letter-spacing:0.18em; text-transform:uppercase;">
+      <a href="/about" style="color:rgba(248,245,240,0.4); text-decoration:none;">About</a>
+      <a href="/privacy" style="color:rgba(248,245,240,0.4); text-decoration:none;">Privacy</a>
+      <a href="/terms" style="color:rgba(248,245,240,0.4); text-decoration:none;">Terms</a>
+    </div>
   </footer>
 </body>
 </html>`;
@@ -3048,7 +4859,7 @@ export function renderCalculatorHTML() {
   </style>
 </head>
 <body>
-  ${renderSiteHeader({ current: 'calculator', back: { href: '/', label: 'Home' } })}
+  ${renderSiteHeader({ current: 'calculator' })}
   <div class="wrap">
     <div class="eyebrow">Rate Wizard</div>
     <h1 id="wiz-title">Step 1: <em>Metrics.</em></h1>
